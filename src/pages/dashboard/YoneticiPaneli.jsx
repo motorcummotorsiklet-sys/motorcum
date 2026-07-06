@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 
-const ROLLER = ['hepsi', 'usta', 'kullanici', 'admin']
-const ROL_LABEL = { hepsi: 'Herkese', usta: 'Usta', kullanici: 'Kullanıcı', admin: 'Admin' }
+const ROLLER = ['hepsi', 'kullanici', 'teknisyen', 'usta', 'yönetici', 'admin']
+const ROL_LABEL = { hepsi: 'Herkese', kullanici: 'Kullanıcı', teknisyen: 'Teknisyen', usta: 'Usta', yönetici: 'Yönetici', admin: 'Admin' }
 
 const YoneticiPaneli = () => {
   const [notlar, setNotlar] = useState([])
@@ -101,9 +101,11 @@ const YoneticiPaneli = () => {
 
     // hedef_roller alanını belirle
     let hedefRoller
+    let hedefKullanicilar = null
     if (form.hedef_tipi === 'kullanici') {
-      // Kullanıcı bazlı: özel bir marker kullanıyoruz, gerçek hedefleme goruldu tablosuyla
+      // Kullanıcı bazlı: seçilen kullanıcı ID'lerini direkt kaydet
       hedefRoller = ['ozel']
+      hedefKullanicilar = form.secili_kullanicilar
     } else {
       hedefRoller = form.secili_roller
     }
@@ -113,6 +115,7 @@ const YoneticiPaneli = () => {
       icerik: form.icerik.trim(),
       aktif: form.aktif,
       hedef_roller: hedefRoller,
+      hedef_kullanicilar: hedefKullanicilar,
     }).select().single()
 
     if (error) {
@@ -121,17 +124,6 @@ const YoneticiPaneli = () => {
       return
     }
 
-    // Kullanıcı bazlı ise hedeflenmeyenleri hemen "görüldü" olarak işaretle
-    // (yani sadece seçilen kullanıcılar görsün — diğerleri için görüldü kaydı oluştur)
-    if (form.hedef_tipi === 'kullanici' && yeniNot) {
-      const hedeflenmeyenler = kullanicilar
-        .filter(k => !form.secili_kullanicilar.includes(k.id))
-        .map(k => ({ user_id: k.id, not_id: yeniNot.id }))
-
-      if (hedeflenmeyenler.length > 0) {
-        await supabase.from('kullanici_notlar_goruldu').insert(hedeflenmeyenler)
-      }
-    }
 
     showMsg('✅ Güncelleme notu kaydedildi!')
     resetForm()
@@ -391,23 +383,33 @@ const YoneticiPaneli = () => {
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>
                     👥 Hedef:{' '}
                     {not.hedef_roller?.includes('hepsi') ? 'Herkes' :
-                     not.hedef_roller?.includes('ozel') ? 'Seçili kullanıcılar' :
-                     not.hedef_roller?.map(r => ROL_LABEL[r] || r).join(', ')}
+                     not.hedef_roller?.includes('ozel')
+                       ? `Seçili kullanıcılar: ${(not.hedef_kullanicilar || []).map(id => {
+                           const k = kullanicilar.find(k => k.id === id)
+                           return k ? `${k.ad} ${k.soyad}` : '?'
+                         }).join(', ') || 'yok'}`
+                       : not.hedef_roller?.map(r => ROL_LABEL[r] || r).join(', ')}
                   </div>
 
                   {/* Okundu takibi */}
                   {(() => {
+                    // Bu nota hedeflenen gerçek kullanıcı listesi
+                    const hedefKullaniciListesi = not.hedef_roller?.includes('hepsi')
+                      ? kullanicilar
+                      : not.hedef_roller?.includes('ozel')
+                        ? kullanicilar.filter(k => (not.hedef_kullanicilar || []).includes(k.id))
+                        : kullanicilar.filter(k => not.hedef_roller?.includes(k.rol))
+
                     const goruldu = okunduBilgisi[not.id] || []
-                    const toplamKullanici = kullanicilar.length
-                    const okuyanlar = kullanicilar.filter(k => goruldu.includes(k.id))
-                    const okumayanlар = kullanicilar.filter(k => !goruldu.includes(k.id))
+                    const toplamKullanici = hedefKullaniciListesi.length
+                    const okuyanlar = hedefKullaniciListesi.filter(k => goruldu.includes(k.id))
                     return (
                       <div style={{ marginBottom: '8px' }}>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
                           👁️ <strong style={{ color: 'var(--text-secondary)' }}>{okuyanlar.length}/{toplamKullanici}</strong> kullanıcı okudu
                         </div>
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                          {kullanicilar.map(k => {
+                          {hedefKullaniciListesi.map(k => {
                             const okudu = goruldu.includes(k.id)
                             return (
                               <span key={k.id} title={okudu ? `${k.ad} ${k.soyad} okudu` : `${k.ad} ${k.soyad} okumadı`} style={{
@@ -440,7 +442,7 @@ const YoneticiPaneli = () => {
                   }}>
                     {not.icerik.split('\n').filter(s => s.trim()).map((satir, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-                        <span style={{ color: '#e5484d', fontSize: '11px', marginTop: '2px', flexShrink: 0 }}>★</span>
+                        <span style={{ color: '#e5484d', fontSize: '11px', marginTop: '2px', flexShrink: 0, lineHeight: 1 }}>&#9733;</span>
                         <span>{satir.trim().replace(/^[•\-\*]\s*/, '')}</span>
                       </div>
                     ))}

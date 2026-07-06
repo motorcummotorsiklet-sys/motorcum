@@ -41,7 +41,7 @@ const GuncellemeNotuPopup = () => {
       // Hedef kontrolü
       const hedef = not.hedef_roller || ['hepsi']
       if (hedef.includes('hepsi')) return true
-      if (hedef.includes('ozel')) return true // özel=kullanıcı seçili, görüldü kaydı yoksa göster
+      if (hedef.includes('ozel')) return (not.hedef_kullanicilar || []).includes(user.id)
       if (hedef.includes(userRol)) return true
 
       return false
