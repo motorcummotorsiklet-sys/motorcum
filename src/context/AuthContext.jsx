@@ -69,6 +69,14 @@ export const AuthProvider = ({ children }) => {
     return { data, error }
   }
 
+  // Teknisyen rolü sadece 08:00 - 20:00 arası login olabilir
+  const saatKisitiKontrol = (rol) => {
+    if (rol !== 'teknisyen') return true
+    const simdi = new Date()
+    const saat = simdi.getHours()
+    return saat >= 8 && saat < 20
+  }
+
   const signIn = async (kullaniciAdi, password) => {
     kullaniciAdi = kullaniciAdi.toLowerCase().trim()
     const isEmail = kullaniciAdi.includes('@')
@@ -78,7 +86,7 @@ export const AuthProvider = ({ children }) => {
     if (!isEmail) {
       const { data: prof, error: profileError } = await supabase
         .from('profiles')
-        .select('email, aktif')
+        .select('email, aktif, rol')
         .eq('kullanici_adi', kullaniciAdi)
         .single()
 
@@ -88,21 +96,28 @@ export const AuthProvider = ({ children }) => {
       if (!prof.aktif) {
         return { error: { message: 'Hesabınız henüz aktif edilmedi. Yöneticinizle iletişime geçin.' } }
       }
+      if (!saatKisitiKontrol(prof.rol)) {
+        return { error: { message: 'Teknisyen hesapları sadece 08:00 - 20:00 saatleri arasında giriş yapabilir.' } }
+      }
       email = prof.email
     }
 
     const result = await supabase.auth.signInWithPassword({ email, password })
 
-    // Email ile giriş durumunda da aktif kontrolü yap
+    // Email ile giriş durumunda da aktif + saat kontrolü yap
     if (!result.error && isEmail) {
       const { data: prof } = await supabase
         .from('profiles')
-        .select('aktif')
+        .select('aktif, rol')
         .eq('email', email)
         .single()
       if (prof && !prof.aktif) {
         await supabase.auth.signOut()
         return { error: { message: 'Hesabınız henüz aktif edilmedi. Yöneticinizle iletişime geçin.' } }
+      }
+      if (prof && !saatKisitiKontrol(prof.rol)) {
+        await supabase.auth.signOut()
+        return { error: { message: 'Teknisyen hesapları sadece 08:00 - 20:00 saatleri arasında giriş yapabilir.' } }
       }
     }
 

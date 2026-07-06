@@ -652,7 +652,7 @@ const ParcaAramaSelect = ({ parcaListesi, value, inputValue, onChange, onManual 
   )
 }
 
-const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutarGuncelle }) => {
+const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutarGuncelle, fiyatGizli = false }) => {
   const [parcaListesi, setParcaListesi] = useState([])
   const [yeniParca, setYeniParca] = useState({ parca_id: '', parca_isim: '', miktar: 1, birim_fiyat: 0 })
   const [ekleniyor, setEkleniyor] = useState(false)
@@ -732,7 +732,7 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
       {!kapali && (
         <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px' }}>
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '10px' }}>Parça Ekle</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', alignItems: 'flex-end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: fiyatGizli ? 'repeat(auto-fit, minmax(130px, 1fr))' : 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', alignItems: 'flex-end' }}>
             <div className="field" style={{ margin: 0, gridColumn: 'span 2' }}>
               <label>Parça Ara / Seç</label>
               <ParcaAramaSelect
@@ -747,10 +747,12 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
               <label>Miktar</label>
               <input type="number" min="1" step="0.5" value={yeniParca.miktar} className="no-spinner" onChange={e => setYeniParca(p => ({ ...p, miktar: e.target.value }))} />
             </div>
-            <div className="field" style={{ margin: 0 }}>
-              <label>Birim Fiyat</label>
-              <input type="number" min="0" step="0.01" value={yeniParca.birim_fiyat} className="no-spinner" onChange={e => setYeniParca(p => ({ ...p, birim_fiyat: e.target.value }))} />
-            </div>
+            {!fiyatGizli && (
+              <div className="field" style={{ margin: 0 }}>
+                <label>Birim Fiyat</label>
+                <input type="number" min="0" step="0.01" value={yeniParca.birim_fiyat} className="no-spinner" onChange={e => setYeniParca(p => ({ ...p, birim_fiyat: e.target.value }))} />
+              </div>
+            )}
             <button className="btn btn-primary" onClick={handleEkle} disabled={ekleniyor}
               style={{ height: '38px', alignSelf: 'flex-end', whiteSpace: 'nowrap' }}>
               {ekleniyor ? '...' : '+ Ekle'}
@@ -771,8 +773,8 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Parça</th>
                 <th style={{ textAlign: 'center', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500, width: '55px' }}>Adet</th>
-                <th style={{ textAlign: 'center', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500, width: '90px' }}>Fiyat</th>
-                <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500, width: '90px' }}>Toplam</th>
+                {!fiyatGizli && <th style={{ textAlign: 'center', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500, width: '90px' }}>Fiyat</th>}
+                {!fiyatGizli && <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500, width: '90px' }}>Toplam</th>}
                 <th style={{ width: '36px' }}></th>
               </tr>
             </thead>
@@ -788,15 +790,19 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
                       />
                     )}
                   </td>
-                  <td style={{ textAlign: 'right', padding: '4px 6px' }}>
-                    {kapali ? `₺${parseFloat(p.birim_fiyat||0).toLocaleString('tr-TR',{minimumFractionDigits:2})}` : (
-                      <input type="number" min="0" step="0.01" defaultValue={p.birim_fiyat}
-                        onBlur={e => handleGuncelle(p.id, 'birim_fiyat', e.target.value)}
-                        style={{ width: '95px', textAlign: 'right', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '5px', padding: '4px 6px', color: 'var(--text-primary)', fontSize: '12px', MozAppearance: 'textfield', appearance: 'textfield' }} className="no-spinner"
-                      />
-                    )}
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '7px 8px', color: '#22c55e', fontWeight: 600 }}>₺{parseFloat(p.toplam||0).toLocaleString('tr-TR',{minimumFractionDigits:2})}</td>
+                  {!fiyatGizli && (
+                    <td style={{ textAlign: 'right', padding: '4px 6px' }}>
+                      {kapali ? `₺${parseFloat(p.birim_fiyat||0).toLocaleString('tr-TR',{minimumFractionDigits:2})}` : (
+                        <input type="number" min="0" step="0.01" defaultValue={p.birim_fiyat}
+                          onBlur={e => handleGuncelle(p.id, 'birim_fiyat', e.target.value)}
+                          style={{ width: '95px', textAlign: 'right', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '5px', padding: '4px 6px', color: 'var(--text-primary)', fontSize: '12px', MozAppearance: 'textfield', appearance: 'textfield' }} className="no-spinner"
+                        />
+                      )}
+                    </td>
+                  )}
+                  {!fiyatGizli && (
+                    <td style={{ textAlign: 'right', padding: '7px 8px', color: '#22c55e', fontWeight: 600 }}>₺{parseFloat(p.toplam||0).toLocaleString('tr-TR',{minimumFractionDigits:2})}</td>
+                  )}
                   <td style={{ padding: '7px 4px', textAlign: 'center' }}>
                     {!kapali && (
                       <button type="button" onClick={() => handleSil(p.id)}
@@ -808,13 +814,15 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={3} style={{ textAlign: 'right', padding: '8px 8px', color: 'var(--text-muted)', fontSize: '12px' }}>Toplam</td>
-                <td style={{ textAlign: 'right', padding: '8px 8px', color: '#22c55e', fontWeight: 700, fontSize: '14px' }}>₺{toplam.toLocaleString('tr-TR',{minimumFractionDigits:2})}</td>
-                <td></td>
-              </tr>
-            </tfoot>
+            {!fiyatGizli && (
+              <tfoot>
+                <tr>
+                  <td colSpan={3} style={{ textAlign: 'right', padding: '8px 8px', color: 'var(--text-muted)', fontSize: '12px' }}>Toplam</td>
+                  <td style={{ textAlign: 'right', padding: '8px 8px', color: '#22c55e', fontWeight: 700, fontSize: '14px' }}>₺{toplam.toLocaleString('tr-TR',{minimumFractionDigits:2})}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       )}
@@ -823,6 +831,8 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
 }
 
 const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, onYazdir }) => {
+  const { profile } = useAuth()
+  const fiyatGizliTeknisyen = profile?.rol === 'teknisyen'
   const [isEmri, setIsEmri] = useState(initialIs)
   const [parcalar, setParcalar] = useState([])
   const [aktifTab, setAktifTab] = useState('detay')
@@ -997,11 +1007,13 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
                     : <input readOnly value={isEmri.arac_km || '-'} />
                   }
                 </div>
-                <div className="field">
-                  <label>Toplam Tutar (₺)</label>
-                  <input readOnly disabled value={`₺${(isEmri.toplam_tutar||0).toLocaleString('tr-TR',{minimumFractionDigits:2})}`} style={{color:'#22c55e',fontWeight:700,cursor:'not-allowed',opacity:0.85}} />
-                  <span style={{fontSize:'10px',color:'var(--text-muted)',marginTop:'4px',display:'block'}}>Parça sekmesinden düzenlenir</span>
-                </div>
+                {!fiyatGizliTeknisyen && (
+                  <div className="field">
+                    <label>Toplam Tutar (₺)</label>
+                    <input readOnly disabled value={`₺${(isEmri.toplam_tutar||0).toLocaleString('tr-TR',{minimumFractionDigits:2})}`} style={{color:'#22c55e',fontWeight:700,cursor:'not-allowed',opacity:0.85}} />
+                    <span style={{fontSize:'10px',color:'var(--text-muted)',marginTop:'4px',display:'block'}}>Parça sekmesinden düzenlenir</span>
+                  </div>
+                )}
                 <div className="field form-full">
                   <label>Müşteri Şikayeti</label>
                   {duzenle
@@ -1029,7 +1041,7 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
 
           {/* PARÇALAR SEKMESİ */}
           {aktifTab === 'parcalar' && (
-            <ParcaYonetim isEmriId={isEmri.id} parcalar={parcalar} setParcalar={setParcalar} kapali={kapali} onTutarGuncelle={(t) => setIsEmri(prev => ({...prev, toplam_tutar: t}))} />
+            <ParcaYonetim isEmriId={isEmri.id} parcalar={parcalar} setParcalar={setParcalar} kapali={kapali} fiyatGizli={fiyatGizliTeknisyen} onTutarGuncelle={(t) => setIsEmri(prev => ({...prev, toplam_tutar: t}))} />
           )}
 
           {/* İŞLEMLER SEKMESİ */}

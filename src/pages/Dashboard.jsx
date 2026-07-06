@@ -14,6 +14,7 @@ import Tanimlamalar from './dashboard/Tanimlamalar'
 import YoneticiPaneli from './dashboard/YoneticiPaneli'
 import { IconDashboard, IconUsers, IconTool, IconSettings, IconChart, IconLogout, IconMenu } from '../components/Icons'
 import ThemeToggle from '../components/ThemeToggle'
+import MotorSaat from '../components/dashboard/MotorSaat'
 import '../styles/dashboard.css'
 
 const PAGE_TITLES = {
@@ -95,7 +96,10 @@ const Dashboard = () => {
               <div className="topbar-subtitle">{subtitle}</div>
             </div>
           </div>
-          <ThemeToggle />
+          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            <MotorSaat />
+            <ThemeToggle />
+          </div>
         </div>
         <div className="page-content">{renderPage()}</div>
       </div>

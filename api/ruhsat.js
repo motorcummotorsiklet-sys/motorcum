@@ -54,7 +54,21 @@ export default async function handler(req, res) {
               },
               {
                 type: 'text',
-                text: `Bu Türk araç ruhsatı fotoğrafı. Ruhsattaki bilgileri oku ve SADECE şu JSON formatında döndür, başka hiçbir şey yazma:\n{"plaka":"","marka":"","model":"","yil":"","renk":"","sasi_no":"","motor_no":""}${markaListesiMetin}${modelListesiMetin}`,
+                text: `Bu bir Türkiye Cumhuriyeti araç tescil belgesi (ruhsat) fotoğrafı. Türk ruhsatları standart bir kutu (alan) numaralandırması kullanır ve bu numaralar her ruhsatta sabittir. Kutu BAŞLIKLARINI okumaya çalışma veya başlıklara güvenme — sadece belirtilen KUTU NUMARASINDAKİ değeri oku, çünkü başlık yazıları küçük/bulanık olabilir ve yanlış okunabilir.
+
+Şu kutu numaralarındaki DEĞERLERİ oku (numaralar genellikle kutunun sol üstünde küçük rakam olarak yazılıdır):
+- Kutu 2: Plaka (plaka formatı: il kodu + harf(ler) + rakam, örn "34 ABC 123")
+- Kutu 6: Marka (aracın üretici markası, örn HONDA, YAMAHA, BMW)
+- Kutu 8: Model / Tip (marka altındaki model adı)
+- Kutu 9: İmal Yılı (4 haneli yıl, örn 2022)
+- Kutu 12: Renk
+- Kutu 13: Motor No (motor seri numarası)
+- Kutu 14: Şasi No (17 haneli VIN / şasi numarası)
+
+Eğer bir kutunun numarasını göremiyorsan, kutuların sıralı düzenine göre (yukarıdan aşağıya, soldan sağa standart ruhsat yerleşimi) tahmin et ama önceliği her zaman kutu numarasına ver.
+
+SADECE şu JSON formatında döndür, başka hiçbir metin ekleme:
+{"plaka":"","marka":"","model":"","yil":"","renk":"","sasi_no":"","motor_no":""}${markaListesiMetin}${modelListesiMetin}`,
               },
             ],
           },
