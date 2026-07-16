@@ -5,6 +5,40 @@ import '../styles/auth.css'
 
 const KAN_GRUPLARI = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', '0+', '0-']
 
+// Doğum tarihi girişi — tek standart format: GG.AA.YYYY
+const TarihGirisi = ({ value, onChange }) => {
+  const [metin, setMetin] = useState('')
+
+  const handleChange = (e) => {
+    const rakamlar = e.target.value.replace(/[^0-9]/g, '').slice(0, 8)
+    let goster = rakamlar
+    if (rakamlar.length > 4) goster = `${rakamlar.slice(0,2)}.${rakamlar.slice(2,4)}.${rakamlar.slice(4)}`
+    else if (rakamlar.length > 2) goster = `${rakamlar.slice(0,2)}.${rakamlar.slice(2)}`
+    setMetin(goster)
+
+    if (rakamlar.length === 0) { onChange(''); return }
+    if (rakamlar.length === 8) {
+      const gun = rakamlar.slice(0, 2)
+      const ay = rakamlar.slice(2, 4)
+      const yil = rakamlar.slice(4, 8)
+      const g = parseInt(gun, 10), a = parseInt(ay, 10), y = parseInt(yil, 10)
+      if (g >= 1 && g <= 31 && a >= 1 && a <= 12 && y >= 1900 && y <= 2100) {
+        onChange(`${yil}-${ay}-${gun}`)
+      }
+    }
+  }
+
+  return (
+    <input
+      value={metin}
+      onChange={handleChange}
+      placeholder="GG.AA.YYYY"
+      inputMode="numeric"
+      maxLength={10}
+    />
+  )
+}
+
 const Register = () => {
   const [form, setForm] = useState({
     ad: '', soyad: '', kullaniciAdi: '', kanGrubu: '',
@@ -153,7 +187,7 @@ const Register = () => {
             </div>
             <div className="form-group">
               <label>Doğum Tarihi</label>
-              <input name="dogumTarihi" type="date" value={form.dogumTarihi} onChange={handleChange} />
+              <TarihGirisi value={form.dogumTarihi} onChange={v => setForm({ ...form, dogumTarihi: v })} />
             </div>
           </div>
 

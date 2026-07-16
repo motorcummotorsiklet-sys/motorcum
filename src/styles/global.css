@@ -9,8 +9,8 @@ html, body, #root {
 }
 
 body {
-  background: #0a0a0a;
-  color: #fff;
+  background: var(--bg-base, #0a0a0a);
+  color: var(--text-primary, #fff);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -23,4 +23,10 @@ input[type=number]::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* Bazı tarayıcılar placeholder metnini varsayılan italik gösteriyor — standart yap */
+input::placeholder,
+textarea::placeholder {
+  font-style: normal;
 }

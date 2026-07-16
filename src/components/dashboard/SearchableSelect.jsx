@@ -71,7 +71,7 @@ const SearchableSelect = ({ value, onChange, options, placeholder, onEkle, ekleL
             <div key={opt}
               onPointerDown={e => { e.preventDefault(); e.stopPropagation(); selectOption(opt) }}
               style={{
-                padding: '0.65rem 0.9rem', color: value === opt ? 'var(--text-primary)' : 'var(--text-secondary)',
+                padding: '0.65rem 0.9rem', fontFamily: 'Inter, sans-serif', fontStyle: 'normal', color: value === opt ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none',
                 background: value === opt ? 'rgba(230,48,48,0.15)' : 'transparent',
               }}

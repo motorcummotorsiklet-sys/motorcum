@@ -47,7 +47,7 @@
   min-height: 100vh;
   background: var(--bg-base);
   font-family: 'Inter', sans-serif;
-  color: #e0e0f0;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -154,7 +154,7 @@
 }
 
 .user-info { overflow: hidden; }
-.user-name { font-size: 13px; font-weight: 500; color: #c0c0cc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-name { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .user-email { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 
 .signout-btn {
@@ -199,7 +199,7 @@
 
 .mobile-menu-btn {
   display: none;
-  background: none; border: none; color: #666;
+  background: none; border: none; color: var(--text-secondary);
   font-size: 1.2rem; cursor: pointer; padding: 4px;
 }
 
@@ -295,15 +295,15 @@
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 6px;
-  color: #c0c0d0;
+  color: var(--text-primary);
   font-size: 11.5px;
   font-family: 'Inter', sans-serif;
   padding: 0 9px;
   outline: none;
   transition: border-color .12s;
 }
-.search-input::placeholder { color: #44445a; }
-.search-input:focus { border-color: #2a2a34; color: #c0c0cc; }
+.search-input::placeholder { color: var(--text-muted); }
+.search-input:focus { border-color: var(--border-hover); }
 
 /* ─── BUTTONS ─── */
 .btn {
@@ -404,7 +404,7 @@ tr:last-child td { border-bottom: none; }
   background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  color: #d8d8e8;
+  color: var(--text-primary);
   font-size: 12px;
   font-family: 'Inter', sans-serif;
   padding: 7px 10px;
@@ -412,8 +412,9 @@ tr:last-child td { border-bottom: none; }
   transition: border-color .12s;
   width: 100%;
 }
-.field input:focus, .field textarea:focus, .field-select:focus { border-color: #2a2a34; color: #e0e0f0; }
-.field input[readonly] { color: #3a3a45; cursor: default; }
+.field input:focus, .field textarea:focus, .field-select:focus { border-color: var(--border-hover); }
+.field-select option { background: var(--bg-surface); color: var(--text-primary); }
+.field input[readonly] { color: var(--text-secondary); cursor: default; }
 .field textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
 
 /* ─── MODAL ─── */
@@ -534,6 +535,13 @@ tr:last-child td { border-bottom: none; }
   .field input, .field textarea, .field-select, .search-input { font-size: 16px !important; }
   .version-badge { bottom: 4.5rem; }
 
+  /* Detay Rapor ve Bildirimler — mobilde iki kolonlu grid'ler tek kolona düşsün */
+  .detay-rapor-grid,
+  .bildirim-baglanti-grid,
+  .bildirim-sablon-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   .bottom-nav {
     display: block;
     position: fixed;
@@ -593,17 +601,17 @@ tr:last-child td { border-bottom: none; }
 [data-theme="light"] .sidebar {
   background: #1a1d23;
 }
-[data-theme="light"] .sidebar-brand span { color: #f0f0f0; }
+[data-theme="light"] .sidebar-brand { border-bottom-color: rgba(0,0,0,.08); }
 [data-theme="light"] .nav-section-title { color: #4a5060; }
 [data-theme="light"] .nav-item { color: #9aa0b0; }
 [data-theme="light"] .nav-item:hover { background: rgba(255,255,255,.07); color: #d0d5e0; }
 [data-theme="light"] .nav-item.active { background: rgba(229,72,77,.15); color: #ff7070; }
-[data-theme="light"] .user-name { color: #e0e5f0; }
 [data-theme="light"] .user-email { color: #6a7080; }
 [data-theme="light"] .signout-btn { color: #5a6070; }
 [data-theme="light"] .signout-btn:hover { color: #ff7070; background: rgba(229,72,77,.1); }
-[data-theme="light"] .sidebar-brand { border-bottom-color: rgba(255,255,255,.06); }
 [data-theme="light"] .sidebar-footer { border-top-color: rgba(255,255,255,.06); }
+[data-theme="light"] .sidebar-brand span { color: #f0f2f6; }
+[data-theme="light"] .user-name { color: #f0f2f6; }
 
 /* ─── LIGHT MOD KART VE TABLO ─── */
 [data-theme="light"] .stat-label { color: #404858 !important; }
@@ -706,11 +714,6 @@ tr:last-child td { border-bottom: none; }
 [data-theme="light"] .table-card td,
 [data-theme="light"] .table-card th { color: #1a2030 !important; }
 [data-theme="light"] td { color: #2a3040 !important; }
-[data-theme="light"] .field input,
-[data-theme="light"] .field textarea { color: #1a2030 !important; }
-[data-theme="light"] .field input[readonly],
-[data-theme="light"] .field textarea[readonly] { color: #2a3040 !important; }
-[data-theme="light"] .user-name { color: #f0f0f0 !important; }
 [data-theme="light"] .empty-state p { color: #5a6070 !important; }
 /* Müşteri kart listesi */
 [data-theme="light"] .mobile-only > div { background: #f0f2f5 !important; border-color: #d0d4dc !important; }
@@ -731,3 +734,32 @@ tr:last-child td { border-bottom: none; }
 /* ─── LIGHT MOD MÜŞTERİ DETAY ─── */
 [data-theme="light"] .musteri-detay-isim { color: #1a2030 !important; }
 [data-theme="light"] .musteri-detay-plaka { color: #1a2030 !important; }
+
+/* ─── LIGHT MOD — GİRDİ/DROPDOWN METİNLERİNİ KESİN OLARAK KOYU YAP ─── */
+/* Sadece dashboard içinde geçerli — login/register sayfası (auth.css) her zaman
+   sabit koyu temalı olduğu için buraya bulaşmamalı, aksi halde metin görünmez olur */
+[data-theme="light"] .dashboard-layout input,
+[data-theme="light"] .dashboard-layout select,
+[data-theme="light"] .dashboard-layout textarea,
+[data-theme="light"] .dashboard-layout .search-input,
+[data-theme="light"] .dashboard-layout .field input,
+[data-theme="light"] .dashboard-layout .field textarea,
+[data-theme="light"] .dashboard-layout .field-select,
+[data-theme="light"] .dashboard-layout .field-select option {
+  color: #14161c !important;
+  -webkit-text-fill-color: #14161c !important;
+}
+[data-theme="light"] .dashboard-layout input::placeholder,
+[data-theme="light"] .dashboard-layout textarea::placeholder,
+[data-theme="light"] .dashboard-layout .search-input::placeholder {
+  color: #8a8f9c !important;
+  -webkit-text-fill-color: #8a8f9c !important;
+}
+/* Chrome otomatik doldurma (autofill) sarı arka planını da düzelt */
+[data-theme="light"] .dashboard-layout input:-webkit-autofill,
+[data-theme="light"] .dashboard-layout input:-webkit-autofill:hover,
+[data-theme="light"] .dashboard-layout input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
+  -webkit-text-fill-color: #14161c !important;
+  transition: background-color 9999s ease-in-out 0s;
+}

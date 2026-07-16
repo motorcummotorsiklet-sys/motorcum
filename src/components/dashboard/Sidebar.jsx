@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -9,6 +10,25 @@ import {
 const IconShield = ({ size = 16, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+)
+
+// Bildirim (zil) ikonu
+const IconBell = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+)
+
+// Çarşaf/detay rapor ikonu
+const IconTable = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/>
+    <line x1="3" y1="9" x2="21" y2="9"/>
+    <line x1="3" y1="15" x2="21" y2="15"/>
+    <line x1="9" y1="3" x2="9" y2="21"/>
+    <line x1="15" y1="3" x2="15" y2="21"/>
   </svg>
 )
 
@@ -29,12 +49,14 @@ const NAV = [
     section: 'Sistem',
     items: [
       { id: 'tanimlamalar', Icon: IconSettings, label: 'Tanımlamalar' },
+      { id: 'bildirimler',  Icon: IconBell,      label: 'Bildirimler', ustaPlusSiniri: true },
     ]
   },
   {
     section: 'Analiz',
     items: [
-      { id: 'raporlar', Icon: IconChart, label: 'Raporlar', ustaPlusSiniri: true },
+      { id: 'raporlar',     Icon: IconChart, label: 'Özet Rapor', ustaPlusSiniri: true },
+      { id: 'detay-rapor',  Icon: IconTable, label: 'Detay Rapor', ustaPlusSiniri: true },
     ]
   }
 ]
@@ -49,8 +71,10 @@ const ADMIN_NAV = {
 const Sidebar = ({ activePage, setActivePage, profile, mobileOpen, setMobileOpen }) => {
   const { signOut, isAdmin } = useAuth()
   const navigate = useNavigate()
+  const [cikisOnay, setCikisOnay] = useState(false)
 
   const handleSignOut = async () => {
+    if (!cikisOnay) { setCikisOnay(true); return }
     await signOut()
     navigate('/login')
   }
@@ -127,10 +151,21 @@ const Sidebar = ({ activePage, setActivePage, profile, mobileOpen, setMobileOpen
               </div>
             </div>
           </div>
-          <button className="signout-btn" onClick={handleSignOut}>
-            <IconLogout size={13} color="currentColor" />
-            Çıkış Yap
-          </button>
+          {cikisOnay ? (
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button className="signout-btn" onClick={handleSignOut} style={{ flex: 1, background: 'rgba(229,72,77,.15)', color: '#e5484d', fontWeight: 700 }}>
+                Emin misin?
+              </button>
+              <button className="signout-btn" onClick={() => setCikisOnay(false)} style={{ flex: 0 }}>
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button className="signout-btn" onClick={handleSignOut}>
+              <IconLogout size={13} color="currentColor" />
+              Çıkış Yap
+            </button>
+          )}
         </div>
       </div>
     </>

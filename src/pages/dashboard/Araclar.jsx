@@ -77,7 +77,7 @@ const Araclar = () => {
             <tbody>
               {filtrelenmis.map(a => (
                 <tr key={a.id}>
-                  <td style={{fontWeight: 700, color: '#fff', letterSpacing: '0.05em'}}>{a.plaka}</td>
+                  <td style={{fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.05em'}}>{a.plaka}</td>
                   <td>{a.musteriler?.ad} {a.musteriler?.soyad}</td>
                   <td>{a.marka} {a.model}</td>
                   <td>{a.yil || '-'}</td>

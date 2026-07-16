@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
+import CustomSelect from '../../components/dashboard/CustomSelect'
 
 const PARCA_KATEGORILERI = ['Motor', 'Fren', 'Elektrik', 'Süspansiyon', 'Şanzıman', 'Kaporta', 'Egzoz', 'Filtre', 'Yağ', 'Lastik', 'Zincir', 'Aydınlatma', 'Diğer']
 
@@ -17,6 +18,7 @@ const AracTanimlamalari = () => {
   const [yeniRenk, setYeniRenk] = useState('')
   const [yeniModel, setYeniModel] = useState({ marka_isim: '', isim: '' })
   const [msg, setMsg] = useState({ text: '', type: '' })
+  const [silmeOnay, setSilmeOnay] = useState(null)
 
   useEffect(() => { fetchAll() }, [])
 
@@ -41,7 +43,8 @@ const AracTanimlamalari = () => {
     else { setYeniMarka(''); fetchAll(); showMsg('Marka eklendi!') }
   }
   const markaSil = async (id) => {
-    if (!confirm('Silmek istediğinize emin misiniz?')) return
+    if (silmeOnay !== `marka-${id}`) { setSilmeOnay(`marka-${id}`); return }
+    setSilmeOnay(null)
     await supabase.from('arac_markalari').delete().eq('id', id)
     fetchAll(); showMsg('Silindi.')
   }
@@ -52,7 +55,8 @@ const AracTanimlamalari = () => {
     else { setYeniModel({ marka_isim: yeniModel.marka_isim, isim:'' }); fetchAll(); showMsg('Model eklendi!') }
   }
   const modelSil = async (id) => {
-    if (!confirm('Silmek istediğinize emin misiniz?')) return
+    if (silmeOnay !== `model-${id}`) { setSilmeOnay(`model-${id}`); return }
+    setSilmeOnay(null)
     await supabase.from('arac_modelleri').delete().eq('id', id)
     fetchAll(); showMsg('Silindi.')
   }
@@ -63,7 +67,8 @@ const AracTanimlamalari = () => {
     else { setYeniRenk(''); fetchAll(); showMsg('Renk eklendi!') }
   }
   const renkSil = async (id) => {
-    if (!confirm('Silmek istediğinize emin misiniz?')) return
+    if (silmeOnay !== `renk-${id}`) { setSilmeOnay(`renk-${id}`); return }
+    setSilmeOnay(null)
     await supabase.from('arac_renkleri').delete().eq('id', id)
     fetchAll(); showMsg('Silindi.')
   }
@@ -102,7 +107,7 @@ const AracTanimlamalari = () => {
             </div>
             {loading ? <div className="empty-state"><p>Yükleniyor...</p></div> : markalar.length === 0 ? <div className="empty-state"><p>Henüz marka yok</p></div> :
               <table><thead><tr><th>Marka</th><th>Eklenme</th><th></th></tr></thead>
-                <tbody>{markalar.filter(m => m.isim.toLowerCase().includes(markaFiltre.toLowerCase())).map(m => <tr key={m.id}><td style={{color:'var(--text-primary)',fontWeight:500}}>{m.isim}</td><td style={{color:'var(--text-muted)'}}>{new Date(m.created_at).toLocaleDateString('tr-TR')}</td><td><button className="btn btn-danger btn-sm" onClick={() => markaSil(m.id)}>Sil</button></td></tr>)}</tbody>
+                <tbody>{markalar.filter(m => m.isim.toLowerCase().includes(markaFiltre.toLowerCase())).map(m => <tr key={m.id}><td style={{color:'var(--text-primary)',fontWeight:500}}>{m.isim}</td><td style={{color:'var(--text-muted)'}}>{new Date(m.created_at).toLocaleDateString('tr-TR')}</td><td>{silmeOnay === `marka-${m.id}` ? <span style={{display:'flex',gap:'4px'}}><button className="btn btn-danger btn-sm" onClick={() => markaSil(m.id)}>Emin misin?</button><button className="btn btn-secondary btn-sm" onClick={() => setSilmeOnay(null)}>✕</button></span> : <button className="btn btn-danger btn-sm" onClick={() => markaSil(m.id)}>Sil</button>}</td></tr>)}</tbody>
               </table>}
           </div>
         </div>
@@ -113,10 +118,13 @@ const AracTanimlamalari = () => {
           <div className="table-card" style={{marginBottom:'1rem'}}>
             <div className="modal-body">
               <div style={{display:'flex',gap:'0.75rem',flexWrap:'wrap'}}>
-                <select className="field-select" style={{flex:1,minWidth:'150px'}} value={yeniModel.marka_isim} onChange={e => setYeniModel({...yeniModel, marka_isim: e.target.value})}>
-                  <option value="">Marka seçin</option>
-                  {markalar.map(m => <option key={m.id} value={m.isim}>{m.isim}</option>)}
-                </select>
+                <CustomSelect
+                  style={{ flex:1, minWidth:'150px' }}
+                  value={yeniModel.marka_isim}
+                  onChange={v => setYeniModel({...yeniModel, marka_isim: v})}
+                  placeholder="Marka seçin"
+                  options={markalar.map(m => ({ value: m.isim, label: m.isim }))}
+                />
                 <input className="search-input" placeholder="Model adı..." value={yeniModel.isim} onChange={e => setYeniModel({...yeniModel, isim: e.target.value})} onKeyDown={e => e.key==='Enter'&&modelEkle()} style={{flex:2,minWidth:'150px'}} />
                 <button className="btn btn-primary" onClick={modelEkle}>+ Ekle</button>
               </div>
@@ -131,10 +139,13 @@ const AracTanimlamalari = () => {
                 ).length})
               </span>
               <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-                <select className="search-input" value={markaFiltreSec} onChange={e => setMarkaFiltreSec(e.target.value)} style={{width:150}}>
-                  <option value="">Tüm Markalar</option>
-                  {markalar.map(m => <option key={m.id} value={m.isim}>{m.isim}</option>)}
-                </select>
+                <CustomSelect
+                  style={{ width:150 }}
+                  value={markaFiltreSec}
+                  onChange={setMarkaFiltreSec}
+                  placeholder="Tüm Markalar"
+                  options={[{ value:'', label:'Tüm Markalar' }, ...markalar.map(m => ({ value: m.isim, label: m.isim }))]}
+                />
                 <input className="search-input" placeholder="Model ara..." value={modelFiltre} onChange={e => setModelFiltre(e.target.value)} style={{width:150}} />
                 {(markaFiltreSec || modelFiltre) && (
                   <button className="btn btn-secondary btn-sm" onClick={() => { setMarkaFiltreSec(''); setModelFiltre('') }}>Temizle</button>
@@ -146,7 +157,7 @@ const AracTanimlamalari = () => {
                 <tbody>{modeller.filter(m =>
                   (!markaFiltreSec || m.marka_isim === markaFiltreSec) &&
                   (!modelFiltre || m.isim.toLowerCase().includes(modelFiltre.toLowerCase()))
-                ).map(m => <tr key={m.id}><td><span className="badge badge-devam">{m.marka_isim}</span></td><td style={{color:'var(--text-primary)',fontWeight:500}}>{m.isim}</td><td><button className="btn btn-danger btn-sm" onClick={() => modelSil(m.id)}>Sil</button></td></tr>)}</tbody>
+                ).map(m => <tr key={m.id}><td><span className="badge badge-devam">{m.marka_isim}</span></td><td style={{color:'var(--text-primary)',fontWeight:500}}>{m.isim}</td><td>{silmeOnay === `model-${m.id}` ? <span style={{display:'flex',gap:'4px'}}><button className="btn btn-danger btn-sm" onClick={() => modelSil(m.id)}>Emin misin?</button><button className="btn btn-secondary btn-sm" onClick={() => setSilmeOnay(null)}>✕</button></span> : <button className="btn btn-danger btn-sm" onClick={() => modelSil(m.id)}>Sil</button>}</td></tr>)}</tbody>
               </table>}
           </div>
         </div>
@@ -169,9 +180,12 @@ const AracTanimlamalari = () => {
             </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:'0.5rem',padding:'1rem 1.5rem'}}>
               {renkler.filter(r => r.isim.toLowerCase().includes(renkFiltre.toLowerCase())).map(r => (
-                <div key={r.id} style={{display:'flex',alignItems:'center',gap:'0.4rem',background:'var(--bg-elevated)',border:'1px solid var(--border)',borderRadius:'20px',padding:'0.35rem 0.75rem'}}>
+                <div key={r.id} style={{display:'flex',alignItems:'center',gap:'0.4rem',background: silmeOnay === `renk-${r.id}` ? 'rgba(229,72,77,.12)' : 'var(--bg-elevated)',border: `1px solid ${silmeOnay === `renk-${r.id}` ? '#e5484d' : 'var(--border)'}`,borderRadius:'20px',padding:'0.35rem 0.75rem'}}>
                   <span style={{color:'var(--text-primary)',fontSize:'0.85rem'}}>{r.isim}</span>
-                  <button onClick={() => renkSil(r.id)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:'0.8rem',padding:0,lineHeight:1}}>✕</button>
+                  <button onClick={() => renkSil(r.id)} title={silmeOnay === `renk-${r.id}` ? 'Onayla, sil' : 'Sil'}
+                    style={{background:'none',border:'none',color: silmeOnay === `renk-${r.id}` ? '#e5484d' : 'var(--text-muted)',cursor:'pointer',fontSize: silmeOnay === `renk-${r.id}` ? '0.7rem' : '0.8rem',fontWeight: silmeOnay === `renk-${r.id}` ? 700 : 400,padding:0,lineHeight:1}}>
+                    {silmeOnay === `renk-${r.id}` ? 'Sil?' : '✕'}
+                  </button>
                 </div>
               ))}
             </div>
@@ -189,6 +203,7 @@ const IsEmriTanimlamalari = () => {
   const [parcaKategoriFiltre, setParcaKategoriFiltre] = useState('')
   const [yeniParca, setYeniParca] = useState({ kod:'', isim:'', kategori:'', birim:'adet', birim_fiyat:'' })
   const [msg, setMsg] = useState({ text:'', type:'' })
+  const [silmeOnayId, setSilmeOnayId] = useState(null)
 
   useEffect(() => { fetchParcalar() }, [])
 
@@ -208,7 +223,8 @@ const IsEmriTanimlamalari = () => {
   }
 
   const parcaSil = async (id) => {
-    if (!confirm('Silmek istediğinize emin misiniz?')) return
+    if (silmeOnayId !== id) { setSilmeOnayId(id); return }
+    setSilmeOnayId(null)
     await supabase.from('parcalar').update({ aktif: false }).eq('id', id)
     fetchParcalar(); showMsg('Parça silindi.')
   }
@@ -224,20 +240,26 @@ const IsEmriTanimlamalari = () => {
             <div className="field"><label>Parça Kodu</label><input placeholder="OEM kodu..." value={yeniParca.kod} onChange={e => setYeniParca({...yeniParca, kod: e.target.value})} /></div>
             <div className="field">
               <label>Kategori</label>
-              <select value={yeniParca.kategori} onChange={e => setYeniParca({...yeniParca, kategori: e.target.value})} className="field-select">
-                <option value="">Seçin</option>
-                {PARCA_KATEGORILERI.map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
+              <CustomSelect
+                value={yeniParca.kategori}
+                onChange={v => setYeniParca({...yeniParca, kategori: v})}
+                placeholder="Seçin"
+                options={PARCA_KATEGORILERI}
+              />
             </div>
             <div className="field">
               <label>Birim</label>
-              <select value={yeniParca.birim} onChange={e => setYeniParca({...yeniParca, birim: e.target.value})} className="field-select">
-                <option value="adet">Adet</option>
-                <option value="litre">Litre</option>
-                <option value="metre">Metre</option>
-                <option value="takım">Takım</option>
-                <option value="set">Set</option>
-              </select>
+              <CustomSelect
+                value={yeniParca.birim}
+                onChange={v => setYeniParca({...yeniParca, birim: v})}
+                options={[
+                  { value:'adet', label:'Adet' },
+                  { value:'litre', label:'Litre' },
+                  { value:'metre', label:'Metre' },
+                  { value:'takım', label:'Takım' },
+                  { value:'set', label:'Set' },
+                ]}
+              />
             </div>
             <div className="field"><label>Birim Fiyat (₺)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={yeniParca.birim_fiyat} onChange={e => setYeniParca({...yeniParca, birim_fiyat: e.target.value})} /></div>
             <div className="field" style={{display:'flex',alignItems:'flex-end'}}>
@@ -263,17 +285,13 @@ const IsEmriTanimlamalari = () => {
             value={parcaArama}
             onChange={e => setParcaArama(e.target.value)}
           />
-          <select
-            className="search-input"
-            style={{flex:1,minWidth:'130px'}}
+          <CustomSelect
+            style={{ flex:1, minWidth:'130px' }}
             value={parcaKategoriFiltre}
-            onChange={e => setParcaKategoriFiltre(e.target.value)}
-          >
-            <option value="">Tüm Kategoriler</option>
-            {[...new Set(parcalar.map(p => p.kategori).filter(Boolean))].sort().map(k => (
-              <option key={k} value={k}>{k}</option>
-            ))}
-          </select>
+            onChange={setParcaKategoriFiltre}
+            placeholder="Tüm Kategoriler"
+            options={[{ value:'', label:'Tüm Kategoriler' }, ...[...new Set(parcalar.map(p => p.kategori).filter(Boolean))].sort().map(k => ({ value:k, label:k }))]}
+          />
           {(parcaArama || parcaKategoriFiltre) && (
             <button className="btn btn-secondary btn-sm" onClick={() => { setParcaArama(''); setParcaKategoriFiltre('') }}>
               Temizle
@@ -289,12 +307,12 @@ const IsEmriTanimlamalari = () => {
               return aramaUy && kategoriUy
             }).map(p => (
               <tr key={p.id}>
-                <td style={{color:'#fff',fontWeight:500}}>{p.isim}</td>
-                <td style={{color:'#888'}}>{p.kod||'-'}</td>
+                <td style={{color:'var(--text-primary)',fontWeight:500}}>{p.isim}</td>
+                <td style={{color:'var(--text-muted)'}}>{p.kod||'-'}</td>
                 <td>{p.kategori ? <span className="badge badge-normal">{p.kategori}</span> : '-'}</td>
-                <td style={{color:'#aaa'}}>{p.birim}</td>
+                <td style={{color:'var(--text-secondary)'}}>{p.birim}</td>
                 <td style={{color:'#22c55e',fontWeight:600}}>₺{parseFloat(p.birim_fiyat||0).toLocaleString('tr-TR',{minimumFractionDigits:2})}</td>
-                <td><button className="btn btn-danger btn-sm" onClick={() => parcaSil(p.id)}>Sil</button></td>
+                <td>{silmeOnayId === p.id ? <span style={{display:'flex',gap:'4px'}}><button className="btn btn-danger btn-sm" onClick={() => parcaSil(p.id)}>Emin misin?</button><button className="btn btn-secondary btn-sm" onClick={() => setSilmeOnayId(null)}>✕</button></span> : <button className="btn btn-danger btn-sm" onClick={() => parcaSil(p.id)}>Sil</button>}</td>
               </tr>
             ))}</tbody>
           </table>

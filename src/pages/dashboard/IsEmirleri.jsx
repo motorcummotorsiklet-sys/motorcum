@@ -2,11 +2,32 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import { IconTool, IconClock, IconLira, IconClipboard, IconTrendUp, IconAlert, IconPlus, IconSearch, IconFilter } from '../../components/Icons'
+import CustomSelect from '../../components/dashboard/CustomSelect'
 
 const DURUMLAR = ['bekliyor', 'devam_ediyor', 'tamamlandi', 'teslim_edildi', 'iptal']
 const DURUMLAR_TR = { bekliyor: 'Bekliyor', devam_ediyor: 'Devam Ediyor', tamamlandi: 'Tamamlandı', teslim_edildi: 'Teslim Edildi', iptal: 'İptal' }
 const IS_TIPLERI = ['Bakım', 'Arıza Giderme', 'Periyodik Bakım', 'Kaza Hasarı', 'Modifikasyon', 'Diğer']
 const ODEME_TURLERI = ['Nakit', 'Kredi Kartı', 'Havale/EFT']
+
+// Elle yazılan parça adı mevcut tanımlarda yoksa (büyük/küçük harf ve boşluk
+// farkı gözetmeksizin) otomatik olarak Tanımlamalar'a ekler. Zaten varsa
+// mevcut kaydı kullanır, tekrar eklemez.
+const parcaTaniminiGaranileGetir = async (isim, birimFiyat, parcaListesi) => {
+  const buyukIsim = isim.trim().toUpperCase()
+  const normalizeEt = (s) => (s || '').trim().toUpperCase().replace(/\s+/g, ' ')
+  const eslesen = parcaListesi.find(p => normalizeEt(p.isim) === normalizeEt(buyukIsim))
+  if (eslesen) return { parca_id: eslesen.id, isim: eslesen.isim }
+
+  const { data, error } = await supabase.from('parcalar').insert({
+    isim: buyukIsim,
+    birim_fiyat: parseFloat(birimFiyat || 0),
+    birim: 'adet',
+    aktif: true,
+  }).select().single()
+
+  if (error || !data) return { parca_id: null, isim: buyukIsim }
+  return { parca_id: data.id, isim: data.isim }
+}
 
 // Türkiye telefon formatı: 0XXX XXX XX XX
 const formatTelefon = (tel) => {
@@ -16,8 +37,17 @@ const formatTelefon = (tel) => {
   return `${rakamlar.slice(0,4)} ${rakamlar.slice(4,7)} ${rakamlar.slice(7,9)} ${rakamlar.slice(9,11)}`
 }
 
+// Türkiye plaka standart formatı: 34 TT 213 (il kodu · harfler · rakamlar)
+const formatPlaka = (plaka) => {
+  if (!plaka) return ''
+  const temiz = plaka.toString().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const eslesme = temiz.match(/^(\d{2})([A-Z]{1,3})(\d{2,4})$/)
+  if (!eslesme) return plaka
+  return `${eslesme[1]} ${eslesme[2]} ${eslesme[3]}`
+}
+
 // Aranabilir müşteri dropdown
-const MusteriSelect = ({ musteriler, value, onChange }) => {
+const MusteriSelect = ({ musteriler, araclar = [], value, onChange }) => {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -34,9 +64,21 @@ const MusteriSelect = ({ musteriler, value, onChange }) => {
     return () => document.removeEventListener('pointerdown', h)
   }, [])
 
-  const filtered = musteriler.filter(m =>
-    `${m.ad} ${m.soyad} ${m.telefon || ''}`.toLowerCase().includes(query.toLowerCase())
-  )
+  // Müşteri id -> o müşteriye ait plakalar (boşluksuz+temiz, arama için)
+  const musteriPlakalari = {}
+  araclar.forEach(a => {
+    if (!a.musteri_id) return
+    const temiz = (a.plaka || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    musteriPlakalari[a.musteri_id] = (musteriPlakalari[a.musteri_id] || '') + ' ' + temiz
+  })
+
+  const aramaTemiz = query.toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+  const filtered = musteriler.filter(m => {
+    const adUy = `${m.ad} ${m.soyad} ${m.telefon || ''}`.toLowerCase().includes(query.toLowerCase())
+    const plakaUy = aramaTemiz.length >= 2 && (musteriPlakalari[m.id] || '').includes(aramaTemiz)
+    return adUy || plakaUy
+  })
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -46,20 +88,25 @@ const MusteriSelect = ({ musteriler, value, onChange }) => {
         onFocus={() => setOpen(true)}
         placeholder="Müşteri adı yazın..."
         autoComplete="off"
-        style={{ background:'#1c1c1c', border:`1px solid ${open?'#e63030':'#2a2a2a'}`, borderRadius:'8px', padding:'0.65rem 0.9rem', color:'#fff', fontSize:'0.88rem', fontFamily:'Inter,sans-serif', outline:'none', width:'100%' }}
+        style={{ background:'var(--input-bg)', border:`1px solid ${open?'#e63030':'var(--border)'}`, borderRadius:'8px', padding:'0.65rem 0.9rem', color:'var(--text-primary)', fontSize:'0.88rem', fontFamily:'Inter,sans-serif', outline:'none', width:'100%' }}
       />
       {open && (
-        <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'#1a1a1a', border:'1px solid #333', borderRadius:'8px', zIndex:9999, maxHeight:'200px', overflowY:'auto', boxShadow:'0 8px 24px rgba(0,0,0,0.6)' }}>
+        <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'var(--bg-surface)', border:'1px solid var(--border)', borderRadius:'8px', zIndex:9999, maxHeight:'200px', overflowY:'auto', boxShadow:'var(--shadow)' }}>
           {filtered.length === 0 ? (
-            <div style={{ padding:'0.65rem', color:'#555', fontSize:'0.85rem' }}>Müşteri bulunamadı</div>
+            <div style={{ padding:'0.65rem', color:'var(--text-muted)', fontSize:'0.85rem' }}>Müşteri bulunamadı</div>
           ) : filtered.map(m => (
             <div key={m.id}
               onPointerDown={e => { e.preventDefault(); onChange(m.id); setQuery(`${m.ad} ${m.soyad}`); setOpen(false) }}
-              style={{ padding:'0.65rem 0.9rem', color: value===m.id ? '#fff':'#bbb', fontSize:'0.85rem', cursor:'pointer', background: value===m.id ? 'rgba(230,48,48,0.15)':'transparent', userSelect:'none' }}
-              onMouseEnter={e => { if(value!==m.id) e.currentTarget.style.background='rgba(255,255,255,0.06)' }}
+              style={{ padding:'0.65rem 0.9rem', fontFamily:'Inter, sans-serif', fontStyle:'normal', color: value===m.id ? 'var(--text-primary)':'var(--text-secondary)', fontSize:'0.85rem', cursor:'pointer', background: value===m.id ? 'rgba(230,48,48,0.15)':'transparent', userSelect:'none' }}
+              onMouseEnter={e => { if(value!==m.id) e.currentTarget.style.background='var(--bg-elevated)' }}
               onMouseLeave={e => { e.currentTarget.style.background = value===m.id ? 'rgba(230,48,48,0.15)':'transparent' }}>
               <div style={{ fontWeight: value===m.id ? 600 : 400 }}>{m.ad} {m.soyad}</div>
-              {m.telefon && <div style={{ fontSize:'0.72rem', color:'#666' }}>{m.telefon}</div>}
+              <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginTop:'2px' }}>
+                {m.telefon && <span style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}>{m.telefon}</span>}
+                {(musteriPlakalari[m.id] || '').trim().split(' ').filter(Boolean).map((p, i) => (
+                  <span key={i} style={{ fontSize:'0.68rem', color:'#e5484d', fontWeight:600 }}>{p}</span>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -115,10 +162,16 @@ const IsEmriForm = ({ onKaydet, onIptal }) => {
   const parcaListeRef = useRef(null)
   const [parcaForm, setParcaForm] = useState({ parca_id: '', parca_isim: '', miktar: 1, birim_fiyat: 0 })
 
-  const parcaEkle = () => {
+  const parcaEkle = async () => {
     if (!parcaForm.parca_isim) return
-    const toplam = parseFloat(parcaForm.birim_fiyat || 0) * parseFloat(parcaForm.miktar || 1)
-    const yeniParcalar = [...parcalar, { ...parcaForm, toplam }]
+    let eklenecekParca = { ...parcaForm }
+    if (!parcaForm.parca_id) {
+      const { parca_id, isim } = await parcaTaniminiGaranileGetir(parcaForm.parca_isim, parcaForm.birim_fiyat, parcaListesi)
+      eklenecekParca = { ...parcaForm, parca_id, parca_isim: isim }
+      if (parca_id) setParcaListesi(prev => [...prev, { id: parca_id, isim, birim_fiyat: parcaForm.birim_fiyat }])
+    }
+    const toplam = parseFloat(eklenecekParca.birim_fiyat || 0) * parseFloat(eklenecekParca.miktar || 1)
+    const yeniParcalar = [...parcalar, { ...eklenecekParca, toplam }]
     setParcalar(yeniParcalar)
     const yeniToplam = yeniParcalar.reduce((s, p) => s + parseFloat(p.toplam || 0), 0)
     setForm(f => ({ ...f, toplam_tutar: yeniToplam.toFixed(2) }))
@@ -209,30 +262,39 @@ const IsEmriForm = ({ onKaydet, onIptal }) => {
             <div className="form-grid">
               <div className="field form-full">
                 <label>Müşteri *</label>
-                <MusteriSelect musteriler={musteriler} value={form.musteri_id} onChange={handleMusteriSec} />
+                <MusteriSelect musteriler={musteriler} araclar={araclar} value={form.musteri_id} onChange={handleMusteriSec} />
               </div>
               <div className="field form-full">
                 <label>Araç *</label>
-                <select value={form.arac_id} onChange={e => setForm({...form, arac_id: e.target.value})} className="field-select" disabled={!form.musteri_id}>
-                  <option value="">{form.musteri_id ? 'Araç seçin' : 'Önce müşteri seçin'}</option>
-                  {musteriAraclari.map(a => <option key={a.id} value={a.id}>{a.plaka} — {a.marka} {a.model}</option>)}
-                </select>
+                <CustomSelect
+                  value={form.arac_id}
+                  onChange={v => setForm({...form, arac_id: v})}
+                  disabled={!form.musteri_id}
+                  placeholder={form.musteri_id ? 'Araç seçin' : 'Önce müşteri seçin'}
+                  options={musteriAraclari.map(a => ({ value: a.id, label: `${formatPlaka(a.plaka)} — ${a.marka} ${a.model}` }))}
+                />
               </div>
               <div className="field">
                 <label>Teknisyen</label>
-                <select value={form.personel_id} onChange={e => setForm({...form, personel_id: e.target.value})} className="field-select">
-                  <option value="">Seçin</option>
-                  {personel.map(p => <option key={p.id} value={p.id}>{p.ad} {p.soyad}</option>)}
-                </select>
+                <CustomSelect
+                  value={form.personel_id}
+                  onChange={v => setForm({...form, personel_id: v})}
+                  placeholder="Seçin"
+                  options={personel.map(p => ({ value: p.id, label: `${p.ad} ${p.soyad}` }))}
+                />
               </div>
               <div className="field">
                 <label>Öncelik</label>
-                <select value={form.oncelik} onChange={e => setForm({...form, oncelik: e.target.value})} className="field-select">
-                  <option value="düşük">Düşük</option>
-                  <option value="normal">Normal</option>
-                  <option value="yüksek">Yüksek</option>
-                  <option value="acil">Acil</option>
-                </select>
+                <CustomSelect
+                  value={form.oncelik}
+                  onChange={v => setForm({...form, oncelik: v})}
+                  options={[
+                    { value: 'düşük', label: 'Düşük' },
+                    { value: 'normal', label: 'Normal' },
+                    { value: 'yüksek', label: 'Yüksek' },
+                    { value: 'acil', label: 'Acil' },
+                  ]}
+                />
               </div>
               <div className="field">
                 <label>Araç KM</label>
@@ -296,6 +358,7 @@ const IsEmriForm = ({ onKaydet, onIptal }) => {
                   <div className="field" style={{ margin: 0 }}>
                     <label>Birim Fiyat</label>
                     <input type="number" min="0" step="0.01" value={parcaForm.birim_fiyat} className="no-spinner"
+                      onFocus={e => e.target.select()}
                       onChange={e => setParcaForm(f => ({ ...f, birim_fiyat: e.target.value }))} />
                   </div>
                   <button type="button" className="btn btn-primary" onClick={parcaEkle}
@@ -378,7 +441,7 @@ const IsEmriForm = ({ onKaydet, onIptal }) => {
                       style={{ opacity: odemeAktif ? 1 : 0.3, cursor: odemeAktif ? 'pointer':'not-allowed' }}>{o}</button>
                   ))}
                 </div>
-                {!odemeAktif && <p style={{color:'#555',fontSize:'0.75rem',marginTop:'0.4rem'}}>Ödeme durumunu "Kısmi" veya "Ödendi" seçince aktif olur</p>}
+                {!odemeAktif && <p style={{color:'var(--text-muted)',fontSize:'0.75rem',marginTop:'0.4rem'}}>Ödeme durumunu "Kısmi" veya "Ödendi" seçince aktif olur</p>}
               </div>
             </div>
           )}
@@ -505,7 +568,7 @@ tbody tr{page-break-inside:avoid}
 <div style="display:none" class="page-header" id="ph">
   <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ddd;padding-bottom:6px;margin-bottom:6px">
     <div style="font-size:11px;font-weight:700;color:#1a1a1a">MOTORCUM &mdash; Servis Formu</div>
-    <div style="font-size:11px;color:#888">#${isEmri.is_emri_no} &middot; ${isEmri.araclar?.plaka||''} &middot; ${isEmri.musteriler?.ad||''} ${isEmri.musteriler?.soyad||''}</div>
+    <div style="font-size:11px;color:#888">#${isEmri.is_emri_no} &middot; ${formatPlaka(isEmri.araclar?.plaka)||''} &middot; ${isEmri.musteriler?.ad||''} ${isEmri.musteriler?.soyad||''}</div>
   </div>
 </div>
 <div class="sec-title">Musteri Bilgileri</div>
@@ -515,7 +578,7 @@ tbody tr{page-break-inside:avoid}
 </div>
 <div class="sec-title">Arac Bilgileri</div>
 <div class="three-col">
-  <div class="fbox"><div class="flbl">Plaka</div><div class="fval red">${isEmri.araclar?.plaka||'-'}</div></div>
+  <div class="fbox"><div class="flbl">Plaka</div><div class="fval red">${formatPlaka(isEmri.araclar?.plaka)||'-'}</div></div>
   <div class="fbox"><div class="flbl">Marka / Model</div><div class="fval">${isEmri.araclar?.marka||''} ${isEmri.araclar?.model||''}</div></div>
   <div class="fbox"><div class="flbl">Yil / Renk</div><div class="fval">${isEmri.araclar?.yil||'-'} / ${isEmri.araclar?.renk||'-'}</div></div>
 </div>
@@ -627,7 +690,7 @@ const ParcaAramaSelect = ({ parcaListesi, value, inputValue, onChange, onManual 
     <div ref={ref} style={{position:'relative'}}>
       <input
         value={query}
-        onChange={e => { setQuery(e.target.value); setOpen(true); onManual(e.target.value) }}
+        onChange={e => { const v = e.target.value.toUpperCase(); setQuery(v); setOpen(true); onManual(v) }}
         onFocus={() => setOpen(true)}
         placeholder="Parça adı yazın veya listeden seçin..."
         autoComplete="off"
@@ -637,8 +700,8 @@ const ParcaAramaSelect = ({ parcaListesi, value, inputValue, onChange, onManual 
         <div style={{position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'var(--bg-surface)', border:'1px solid var(--border)', borderRadius:'8px', zIndex:9999, maxHeight:'200px', overflowY:'auto', boxShadow:'var(--shadow)'}}>
           {filtered.map(p => (
             <div key={p.id}
-              onPointerDown={e => { e.preventDefault(); onChange(p.id, p.isim, p.birim_fiyat); setQuery(p.isim); setOpen(false) }}
-              style={{padding:'8px 12px', cursor:'pointer', fontSize:'12.5px', display:'flex', justifyContent:'space-between', alignItems:'center', color: value===p.id ? 'var(--text-primary)' : 'var(--text-secondary)', background: value===p.id ? 'rgba(229,72,77,.08)' : 'transparent'}}
+              onPointerDown={e => { e.preventDefault(); const isimBuyuk = p.isim.toUpperCase(); onChange(p.id, isimBuyuk, p.birim_fiyat); setQuery(isimBuyuk); setOpen(false) }}
+              style={{padding:'8px 12px', cursor:'pointer', fontFamily:'Inter, sans-serif', fontStyle:'normal', fontSize:'12.5px', display:'flex', justifyContent:'space-between', alignItems:'center', color: value===p.id ? 'var(--text-primary)' : 'var(--text-secondary)', background: value===p.id ? 'rgba(229,72,77,.08)' : 'transparent'}}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
               onMouseLeave={e => e.currentTarget.style.background = value===p.id ? 'rgba(229,72,77,.08)' : 'transparent'}
             >
@@ -657,6 +720,7 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
   const [yeniParca, setYeniParca] = useState({ parca_id: '', parca_isim: '', miktar: 1, birim_fiyat: 0 })
   const [ekleniyor, setEkleniyor] = useState(false)
   const [formAcik, setFormAcik] = useState(false)
+  const [silmeOnayId, setSilmeOnayId] = useState(null)
 
   useEffect(() => {
     supabase.from('parcalar').select('*').eq('aktif', true).order('isim')
@@ -672,13 +736,19 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
   const handleEkle = async () => {
     if (!yeniParca.parca_isim.trim()) return
     setEkleniyor(true)
-    const toplam = parseFloat(yeniParca.miktar || 1) * parseFloat(yeniParca.birim_fiyat || 0)
+    let kaydedilecek = { ...yeniParca }
+    if (!yeniParca.parca_id) {
+      const { parca_id, isim } = await parcaTaniminiGaranileGetir(yeniParca.parca_isim, yeniParca.birim_fiyat, parcaListesi)
+      kaydedilecek = { ...yeniParca, parca_id, parca_isim: isim }
+      if (parca_id) setParcaListesi(prev => [...prev, { id: parca_id, isim, birim_fiyat: yeniParca.birim_fiyat }])
+    }
+    const toplam = parseFloat(kaydedilecek.miktar || 1) * parseFloat(kaydedilecek.birim_fiyat || 0)
     const { data, error } = await supabase.from('is_emri_parcalari').insert({
       is_emri_id: isEmriId,
-      parca_id: yeniParca.parca_id || null,
-      parca_isim: yeniParca.parca_isim,
-      miktar: parseFloat(yeniParca.miktar || 1),
-      birim_fiyat: parseFloat(yeniParca.birim_fiyat || 0),
+      parca_id: kaydedilecek.parca_id || null,
+      parca_isim: kaydedilecek.parca_isim,
+      miktar: parseFloat(kaydedilecek.miktar || 1),
+      birim_fiyat: parseFloat(kaydedilecek.birim_fiyat || 0),
       toplam,
     }).select().single()
     if (!error && data) {
@@ -695,7 +765,8 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
   }
 
   const handleSil = async (id) => {
-    if (!confirm('Bu parçayı silmek istediğinize emin misiniz?')) return
+    if (silmeOnayId !== id) { setSilmeOnayId(id); return }
+    setSilmeOnayId(null)
     await supabase.from('is_emri_parcalari').delete().eq('id', id)
     const kalanlar = parcalar.filter(p => p.id !== id)
     setParcalar(kalanlar)
@@ -750,7 +821,9 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
             {!fiyatGizli && (
               <div className="field" style={{ margin: 0 }}>
                 <label>Birim Fiyat</label>
-                <input type="number" min="0" step="0.01" value={yeniParca.birim_fiyat} className="no-spinner" onChange={e => setYeniParca(p => ({ ...p, birim_fiyat: e.target.value }))} />
+                <input type="number" min="0" step="0.01" value={yeniParca.birim_fiyat} className="no-spinner"
+                  onFocus={e => e.target.select()}
+                  onChange={e => setYeniParca(p => ({ ...p, birim_fiyat: e.target.value }))} />
               </div>
             )}
             <button className="btn btn-primary" onClick={handleEkle} disabled={ekleniyor}
@@ -785,6 +858,7 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
                   <td style={{ textAlign: 'center', padding: '4px 6px' }}>
                     {kapali ? p.miktar : (
                       <input type="number" min="0.5" step="0.5" defaultValue={p.miktar}
+                        onFocus={e => e.target.select()}
                         onBlur={e => handleGuncelle(p.id, 'miktar', e.target.value)}
                         style={{ width: '70px', textAlign: 'center', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '5px', padding: '4px 6px', color: 'var(--text-primary)', fontSize: '12px', MozAppearance: 'textfield', appearance: 'textfield' }} className="no-spinner"
                       />
@@ -794,6 +868,7 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
                     <td style={{ textAlign: 'right', padding: '4px 6px' }}>
                       {kapali ? `₺${parseFloat(p.birim_fiyat||0).toLocaleString('tr-TR',{minimumFractionDigits:2})}` : (
                         <input type="number" min="0" step="0.01" defaultValue={p.birim_fiyat}
+                          onFocus={e => e.target.select()}
                           onBlur={e => handleGuncelle(p.id, 'birim_fiyat', e.target.value)}
                           style={{ width: '95px', textAlign: 'right', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '5px', padding: '4px 6px', color: 'var(--text-primary)', fontSize: '12px', MozAppearance: 'textfield', appearance: 'textfield' }} className="no-spinner"
                         />
@@ -805,10 +880,25 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
                   )}
                   <td style={{ padding: '7px 4px', textAlign: 'center' }}>
                     {!kapali && (
-                      <button type="button" onClick={() => handleSil(p.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e5484d', fontSize: '14px', padding: '2px 4px' }}>
-                        🗑️
-                      </button>
+                      silmeOnayId === p.id ? (
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
+                          <button type="button" onClick={() => handleSil(p.id)}
+                            title="Onayla, sil"
+                            style={{ background: '#e5484d', border: 'none', borderRadius: '5px', cursor: 'pointer', color: '#fff', fontSize: '10px', fontWeight: 700, padding: '4px 8px' }}>
+                            Sil?
+                          </button>
+                          <button type="button" onClick={() => setSilmeOnayId(null)}
+                            title="Vazgeç"
+                            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '5px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '10px', padding: '4px 6px' }}>
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => handleSil(p.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e5484d', fontSize: '14px', padding: '2px 4px' }}>
+                          🗑️
+                        </button>
+                      )
                     )}
                   </td>
                 </tr>
@@ -991,7 +1081,7 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
                     <input readOnly value="-" />
                   )}
                 </div>
-                <div className="field"><label>Araç</label><input readOnly value={`${isEmri.araclar?.plaka||''} — ${isEmri.araclar?.marka||''} ${isEmri.araclar?.model||''}`} /></div>
+                <div className="field"><label>Araç</label><input readOnly value={`${formatPlaka(isEmri.araclar?.plaka)||''} — ${isEmri.araclar?.marka||''} ${isEmri.araclar?.model||''}`} /></div>
                 <div className="field"><label>Kayıt Tarihi</label><input readOnly value={new Date(isEmri.created_at).toLocaleString('tr-TR')} /></div>
                 <div className="field">
                   <label>Tahmini Çıkış</label>
@@ -1050,10 +1140,8 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
               <div className="field form-full">
                 <label>Teknisyen / Sorumlu</label>
                 {duzenle && !kapali ? (
-                  <select className="field-select" value={form.personel_id || ''} onChange={e => setForm(f => ({...f, personel_id: e.target.value}))}>
-                    <option value="">— Seçin</option>
-                    {personelList.map(p => <option key={p.id} value={p.id}>{p.ad} {p.soyad}</option>)}
-                  </select>
+                  <CustomSelect value={form.personel_id || ''} onChange={v => setForm(f => ({...f, personel_id: v}))} placeholder="— Seçin"
+                    options={personelList.map(p => ({ value: p.id, label: `${p.ad} ${p.soyad}` }))} />
                 ) : (
                   <input readOnly value={isEmri.personel ? `${isEmri.personel.ad} ${isEmri.personel.soyad}` : '-'} />
                 )}
@@ -1401,7 +1489,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
             <span className="stat-label">Toplam İş</span>
             <div className="stat-icon" style={{background:'rgba(255,255,255,.04)'}}><IconClipboard size={15} color="#4a5068" /></div>
           </div>
-          <div className="stat-value" style={{color:'#f0f0f0'}}>{rakamGizli ? "***" : isler.length}</div>
+          <div className="stat-value" style={{color:'var(--text-primary)'}}>{rakamGizli ? "***" : isler.length}</div>
           <div className="stat-sub">bu ay</div>
         </div>
       </div>
@@ -1409,16 +1497,25 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
       {/* Filtreler */}
       <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', marginBottom:'0.75rem' }}>
         <input className="search-input" style={{flex:2,minWidth:'150px'}} placeholder="İş no, müşteri, plaka..." value={arama} onChange={e => setArama(e.target.value)} />
-        <select className="search-input" style={{flex:1,minWidth:'120px'}} value={personelFiltre} onChange={e => setPersonelFiltre(e.target.value)}>
-          <option value="">Tüm Personel</option>
-          {personelList.map(p => <option key={p.id} value={p.id}>{p.ad} {p.soyad}</option>)}
-        </select>
-        <select className="search-input" style={{flex:1,minWidth:'130px'}} value={odemeFiltre} onChange={e => setOdemeFiltre(e.target.value)}>
-          <option value="">Tüm Ödemeler</option>
-          <option value="odenmedi">Ödenmedi</option>
-          <option value="kismi">Kısmi Ödeme</option>
-          <option value="odendi">Ödendi</option>
-        </select>
+        <CustomSelect
+          style={{ flex:1, minWidth:'120px' }}
+          value={personelFiltre}
+          onChange={setPersonelFiltre}
+          placeholder="Tüm Personel"
+          options={[{ value:'', label:'Tüm Personel' }, ...personelList.map(p => ({ value: p.id, label: `${p.ad} ${p.soyad}` }))]}
+        />
+        <CustomSelect
+          style={{ flex:1, minWidth:'130px' }}
+          value={odemeFiltre}
+          onChange={setOdemeFiltre}
+          placeholder="Tüm Ödemeler"
+          options={[
+            { value:'', label:'Tüm Ödemeler' },
+            { value:'odenmedi', label:'Ödenmedi' },
+            { value:'kismi', label:'Kısmi Ödeme' },
+            { value:'odendi', label:'Ödendi' },
+          ]}
+        />
         <button className="btn btn-primary" onClick={() => setModalAcik(true)}>+ İş Emri</button>
       </div>
 
@@ -1441,7 +1538,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
                   <tr key={is.id} onClick={() => setDetayModal(is)} style={{cursor:'pointer'}} onMouseEnter={e => e.currentTarget.style.background='var(--bg-elevated)'} onMouseLeave={e => e.currentTarget.style.background=''}>
                     <td style={{fontWeight:700,color:'var(--text-primary)'}}>#{is.is_emri_no}</td>
                     <td style={{color:'var(--text-primary)'}}>{is.musteriler?.ad} {is.musteriler?.soyad}</td>
-                    <td><span style={{fontWeight:600,color:'#e5484d'}}>{is.araclar?.plaka}</span> <span style={{color:'var(--text-muted)',fontSize:'0.8rem'}}>{is.araclar?.marka}</span></td>
+                    <td><span style={{fontWeight:600,color:'#e5484d'}}>{formatPlaka(is.araclar?.plaka)}</span> <span style={{color:'var(--text-muted)',fontSize:'0.8rem'}}>{is.araclar?.marka}</span></td>
                     <td style={{color:'var(--text-secondary)'}}>{is.personel ? `${is.personel.ad} ${is.personel.soyad}` : '-'}</td>
                     <td>{durumBadge(is.durum)}</td>
                     <td><span className={`badge ${is.odeme_durumu==='odendi'?'badge-odendi':is.odeme_durumu==='kismi'?'badge-kismi':'badge-odenmedi'}`}>{is.odeme_durumu==='odendi'?'Ödendi':is.odeme_durumu==='kismi'?'Kısmi':'Ödenmedi'}</span></td>
@@ -1470,7 +1567,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
                 </div>
                 <div style={{color:'var(--text-primary)',fontSize:'13px',fontWeight:500}}>{is.musteriler?.ad} {is.musteriler?.soyad}</div>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px'}}>
-                  <span style={{color:'#e5484d',fontSize:'12px',fontWeight:600}}>{is.araclar?.plaka} <span style={{color:'var(--text-muted)',fontWeight:400}}>{is.araclar?.marka}</span></span>
+                  <span style={{color:'#e5484d',fontSize:'12px',fontWeight:600}}>{formatPlaka(is.araclar?.plaka)} <span style={{color:'var(--text-muted)',fontWeight:400}}>{is.araclar?.marka}</span></span>
                   <span className={`badge ${is.odeme_durumu==='odendi'?'badge-odendi':is.odeme_durumu==='kismi'?'badge-kismi':'badge-odenmedi'}`}>{is.odeme_durumu==='odendi'?'Ödendi':is.odeme_durumu==='kismi'?'Kısmi':'Ödenmedi'}</span>
                 </div>
               </div>
@@ -1496,7 +1593,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
                       <tr key={is.id} style={{opacity:is.durum==='iptal'?0.55:1,cursor:'pointer'}} onClick={() => setDetayModal(is)} onMouseEnter={e => e.currentTarget.style.background='var(--bg-elevated)'} onMouseLeave={e => e.currentTarget.style.background=''}>
                         <td style={{fontWeight:700,color:'var(--text-primary)'}}>#{is.is_emri_no}</td>
                         <td style={{color:'var(--text-primary)'}}>{is.musteriler?.ad} {is.musteriler?.soyad}</td>
-                        <td><span style={{fontWeight:600,color:'#e5484d'}}>{is.araclar?.plaka}</span> <span style={{color:'var(--text-muted)',fontSize:'0.8rem'}}>{is.araclar?.marka}</span></td>
+                        <td><span style={{fontWeight:600,color:'#e5484d'}}>{formatPlaka(is.araclar?.plaka)}</span> <span style={{color:'var(--text-muted)',fontSize:'0.8rem'}}>{is.araclar?.marka}</span></td>
                         <td style={{color:'var(--text-secondary)'}}>{is.personel ? `${is.personel.ad} ${is.personel.soyad}` : '-'}</td>
                         <td>{durumBadge(is.durum)}</td>
                         <td><span className={`badge ${is.odeme_durumu==='odendi'?'badge-odendi':is.odeme_durumu==='kismi'?'badge-kismi':'badge-odenmedi'}`}>{is.odeme_durumu==='odendi'?'Ödendi':is.odeme_durumu==='kismi'?'Kısmi':'Ödenmedi'}</span></td>
@@ -1531,7 +1628,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
                     </div>
                     <div style={{color:'var(--text-primary)',fontSize:'13px',fontWeight:500}}>{is.musteriler?.ad} {is.musteriler?.soyad}</div>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px'}}>
-                      <span style={{color:'#e5484d',fontSize:'12px',fontWeight:600}}>{is.araclar?.plaka} <span style={{color:'var(--text-muted)',fontWeight:400}}>{is.araclar?.marka}</span></span>
+                      <span style={{color:'#e5484d',fontSize:'12px',fontWeight:600}}>{formatPlaka(is.araclar?.plaka)} <span style={{color:'var(--text-muted)',fontWeight:400}}>{is.araclar?.marka}</span></span>
                       <span className={`badge ${is.odeme_durumu==='odendi'?'badge-odendi':is.odeme_durumu==='kismi'?'badge-kismi':'badge-odenmedi'}`}>{is.odeme_durumu==='odendi'?'Ödendi':is.odeme_durumu==='kismi'?'Kısmi':'Ödenmedi'}</span>
                     </div>
                   </div>

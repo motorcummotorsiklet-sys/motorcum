@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../supabaseClient'
 
 // Bar chart - flex tabanlı, responsive
-const BarChart = ({ data, color = '#e5484d' }) => {
+const BarChart = ({ data, color = '#e5484d', onBarClick }) => {
   if (!data || data.length === 0) return (
     <div style={{height:120,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)',fontSize:'12px'}}>
       Yeterli veri yok
@@ -14,8 +14,12 @@ const BarChart = ({ data, color = '#e5484d' }) => {
     <div style={{display:'flex',alignItems:'flex-end',gap:'6px',height:'130px',padding:'0 4px'}}>
       {data.map((d, i) => {
         const pct = max > 0 ? (d.value / max) * 100 : 0
+        const tiklanabilir = onBarClick && d.value > 0
         return (
-          <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:'4px',height:'100%',justifyContent:'flex-end'}}>
+          <div key={i}
+            onClick={() => tiklanabilir && onBarClick(d)}
+            style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:'4px',height:'100%',justifyContent:'flex-end',cursor: tiklanabilir ? 'pointer' : 'default'}}
+          >
             {d.value > 0 && (
               <span style={{fontSize:'11px',fontWeight:700,color,lineHeight:1}}>{d.value}</span>
             )}
@@ -24,9 +28,12 @@ const BarChart = ({ data, color = '#e5484d' }) => {
               background: d.value > 0 ? color : 'var(--bg-elevated)',
               height: d.value > 0 ? `${Math.max(pct, 8)}%` : '4%',
               opacity: d.value > 0 ? 1 : 0.3,
-              transition: 'height .4s ease',
+              transition: 'height .4s ease, opacity .15s ease',
               minHeight: '4px',
-            }}/>
+            }}
+            onMouseEnter={e => { if (tiklanabilir) e.currentTarget.style.opacity = '0.75' }}
+            onMouseLeave={e => { if (tiklanabilir) e.currentTarget.style.opacity = '1' }}
+            />
             <div style={{textAlign:'center'}}>
               <div style={{fontSize:'10px',color:'var(--text-muted)',fontWeight:500}}>{d.label}</div>
               <div style={{fontSize:'9px',color:'var(--text-muted)',opacity:.6}}>{d.sub||''}</div>
@@ -68,6 +75,8 @@ const Raporlar = () => {
   const rakamGizli = profile?.rol === 'admin'
   const [aralik, setAralik] = useState('hafta')
   const [loading, setLoading] = useState(true)
+  const [secilenGun, setSecilenGun] = useState(null)
+  const [odemeFiltrePopup, setOdemeFiltrePopup] = useState('hepsi')
   const [data, setData] = useState({
     toplamIs:0, tamamlanan:0, bekleyen:0, devamEden:0, iptal:0,
     toplamCiro:0, tahsilEdilen:0, kismiOdeme:0, bekleyenTahsilat:0,
@@ -79,17 +88,31 @@ const Raporlar = () => {
   const fetchRapor = async () => {
     setLoading(true)
     const simdi = new Date()
-    let baslangic
 
-    if (aralik === 'bugun') baslangic = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate())
-    else if (aralik === 'hafta') baslangic = new Date(simdi.getTime() - 7*24*60*60*1000)
-    else if (aralik === 'ay') baslangic = new Date(simdi.getFullYear(), simdi.getMonth(), 1)
-    else baslangic = new Date(simdi.getFullYear(), 0, 1)
+    // Takvim tabanlı doğru aralıklar (yaklaşık değil, gerçek gün/hafta/ay/yıl sınırları)
+    let baslangic, bitis
+    if (aralik === 'bugun') {
+      baslangic = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate())
+      bitis = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate() + 1)
+    } else if (aralik === 'hafta') {
+      // Pazartesi - Pazar (JS'te Pazar=0, Pazartesi=1 ... Cumartesi=6)
+      const gunSirasi = simdi.getDay()
+      const pazartesiFarki = gunSirasi === 0 ? 6 : gunSirasi - 1
+      baslangic = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate() - pazartesiFarki)
+      bitis = new Date(baslangic.getFullYear(), baslangic.getMonth(), baslangic.getDate() + 7)
+    } else if (aralik === 'ay') {
+      baslangic = new Date(simdi.getFullYear(), simdi.getMonth(), 1)
+      bitis = new Date(simdi.getFullYear(), simdi.getMonth() + 1, 1)
+    } else {
+      baslangic = new Date(simdi.getFullYear(), 0, 1)
+      bitis = new Date(simdi.getFullYear() + 1, 0, 1)
+    }
 
     const { data: isler } = await supabase
       .from('is_emirleri')
-      .select('*, musteriler(ad,soyad), personel(ad,soyad)')
+      .select('*, musteriler(ad,soyad), araclar(plaka,marka,model), personel(ad,soyad)')
       .gte('created_at', baslangic.toISOString())
+      .lt('created_at', bitis.toISOString())
       .order('created_at', { ascending: true })
 
     const liste = isler || []
@@ -112,15 +135,25 @@ const Raporlar = () => {
       return s
     }, 0)
 
-    // Günlük bar grafik - son 7 gün
+    // Günlük bar grafik — seçili aralığın kendi günlerini gösterir (bugün=1 gün, hafta=7 gün Pzt-Paz, ay=ayın günleri, yıl=12 ay)
     const gunlukData = []
-    for (let j = 6; j >= 0; j--) {
-      const g = new Date(simdi.getTime() - j*24*60*60*1000)
-      const label = g.toLocaleDateString('tr-TR', { weekday:'short' })
-      const sub = `${g.getDate()}/${g.getMonth()+1}`
-      const gun = g.toDateString()
-      const value = liste.filter(i => new Date(i.created_at).toDateString() === gun).length
-      gunlukData.push({ label, sub, value })
+    if (aralik === 'yil') {
+      for (let ay = 0; ay < 12; ay++) {
+        const ayBaslangic = new Date(simdi.getFullYear(), ay, 1)
+        const ayBitis = new Date(simdi.getFullYear(), ay + 1, 1)
+        const ayIsleri = liste.filter(i => { const t = new Date(i.created_at); return t >= ayBaslangic && t < ayBitis })
+        gunlukData.push({ label: ayBaslangic.toLocaleDateString('tr-TR', { month:'short' }), sub: '', value: ayIsleri.length, isler: ayIsleri })
+      }
+    } else {
+      const gunSayisi = Math.round((bitis - baslangic) / (24*60*60*1000))
+      for (let j = 0; j < gunSayisi; j++) {
+        const g = new Date(baslangic.getFullYear(), baslangic.getMonth(), baslangic.getDate() + j)
+        const gYarin = new Date(g.getFullYear(), g.getMonth(), g.getDate() + 1)
+        const label = g.toLocaleDateString('tr-TR', { weekday:'short' })
+        const sub = `${g.getDate()}/${g.getMonth()+1}`
+        const gunIsleri = liste.filter(i => { const t = new Date(i.created_at); return t >= g && t < gYarin })
+        gunlukData.push({ label, sub, value: gunIsleri.length, isler: gunIsleri, tarih: g })
+      }
     }
 
     // Personel
@@ -215,7 +248,7 @@ const Raporlar = () => {
         <div className="table-card" style={{padding:'16px'}}>
           <div style={{fontWeight:600,fontSize:'13px',color:'var(--text-primary)',marginBottom:'2px'}}>📊 Günlük İş Dağılımı</div>
           <div style={{fontSize:'10px',color:'var(--text-muted)',marginBottom:'14px'}}>Son 7 gün — iş emri sayısı</div>
-          <BarChart data={data.gunlukData} color="#e5484d" />
+          <BarChart data={data.gunlukData} color="#e5484d" onBarClick={g => { setSecilenGun(g); setOdemeFiltrePopup('hepsi') }} />
         </div>
         <div className="table-card" style={{padding:'14px'}}>
           <div style={{fontWeight:600,fontSize:'13px',color:'var(--text-primary)',marginBottom:'2px'}}>🍩 Durum Dağılımı</div>
@@ -344,6 +377,113 @@ const Raporlar = () => {
           </div>
         </div>
       </div>
+
+      {secilenGun && (
+        <div className="modal-overlay" onClick={() => setSecilenGun(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <span className="modal-title">
+                📅 {aralik === 'yil' ? secilenGun.label : `${secilenGun.label} · ${secilenGun.sub}`}
+                <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 400 }}>
+                  ({secilenGun.isler.length} iş emri)
+                </span>
+              </span>
+              <button className="modal-close" onClick={() => setSecilenGun(null)}>✕</button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '6px', padding: '10px 18px 0', flexWrap: 'wrap' }}>
+              {[
+                { id: 'hepsi', label: 'Tümü' },
+                { id: 'odendi', label: '🟢 Ödendi' },
+                { id: 'kismi', label: '🟡 Kısmi' },
+                { id: 'odenmedi', label: '🔴 Ödenmedi' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setOdemeFiltrePopup(f.id)}
+                  style={{
+                    fontSize: '11px', fontWeight: 600, padding: '5px 11px', borderRadius: '20px',
+                    border: `1px solid ${odemeFiltrePopup === f.id ? '#e5484d' : 'var(--border)'}`,
+                    background: odemeFiltrePopup === f.id ? 'rgba(229,72,77,.12)' : 'var(--bg-elevated)',
+                    color: odemeFiltrePopup === f.id ? '#e5484d' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="modal-body">
+              {(() => {
+                const filtrelenmis = odemeFiltrePopup === 'hepsi'
+                  ? secilenGun.isler
+                  : secilenGun.isler.filter(i => i.odeme_durumu === odemeFiltrePopup)
+
+                if (filtrelenmis.length === 0) return (
+                  <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    {odemeFiltrePopup === 'hepsi' ? 'Bu tarihte iş emri bulunmuyor.' : 'Bu filtreye uyan iş emri bulunmuyor.'}
+                  </div>
+                )
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {filtrelenmis.map(is => {
+                      const durumRenk = {
+                        bekliyor: '#8890a8', devam_ediyor: '#f5a623',
+                        tamamlandi: '#22c55e', teslim_edildi: '#22c55e', iptal: '#e5484d',
+                      }[is.durum] || '#8890a8'
+                      const durumLabel = {
+                        bekliyor: 'Bekliyor', devam_ediyor: 'Devam Ediyor',
+                        tamamlandi: 'Tamamlandı', teslim_edildi: 'Teslim Edildi', iptal: 'İptal',
+                      }[is.durum] || is.durum
+                      const odemeRozet = {
+                        odendi: { label: '🟢 Ödendi', renk: '#22c55e' },
+                        kismi: { label: '🟡 Kısmi', renk: '#f5a623' },
+                        odenmedi: { label: '🔴 Ödenmedi', renk: '#e5484d' },
+                      }[is.odeme_durumu]
+                      return (
+                        <div key={is.id} style={{
+                          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                          borderRadius: '10px', padding: '10px 12px',
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px', gap: '8px' }}>
+                            <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
+                              #{is.is_emri_no} · {is.musteriler ? `${is.musteriler.ad} ${is.musteriler.soyad}` : 'Müşteri yok'}
+                            </span>
+                            <span style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: durumRenk, background: `${durumRenk}22`, padding: '2px 8px', borderRadius: '10px', whiteSpace: 'nowrap' }}>
+                                {durumLabel}
+                              </span>
+                              {odemeRozet && (
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: odemeRozet.renk, background: `${odemeRozet.renk}22`, padding: '2px 8px', borderRadius: '10px', whiteSpace: 'nowrap' }}>
+                                  {odemeRozet.label}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                            {is.araclar && <span>🏍️ {is.araclar.plaka} {is.araclar.marka}</span>}
+                            {is.personel && <span>👷 {is.personel.ad} {is.personel.soyad}</span>}
+                            <span style={{ marginLeft: 'auto', fontWeight: 600, color: rakamGizli ? 'var(--text-muted)' : '#22c55e' }}>
+                              {rakamGizli ? '₺ ***' : `₺${(is.toplam_tutar||0).toLocaleString('tr-TR')}`}
+                            </span>
+                          </div>
+                          {is.sikayet && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '5px', fontStyle: 'italic' }}>
+                              "{is.sikayet}"
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

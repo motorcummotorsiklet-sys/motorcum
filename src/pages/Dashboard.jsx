@@ -10,6 +10,8 @@ import Musteriler from './dashboard/Musteriler'
 import IsEmirleri from './dashboard/IsEmirleri'
 import Personel from './dashboard/Personel'
 import Raporlar from './dashboard/Raporlar'
+import DetayRapor from './dashboard/DetayRapor'
+import Bildirimler from './dashboard/Bildirimler'
 import Tanimlamalar from './dashboard/Tanimlamalar'
 import YoneticiPaneli from './dashboard/YoneticiPaneli'
 import { IconDashboard, IconUsers, IconTool, IconSettings, IconChart, IconLogout, IconMenu } from '../components/Icons'
@@ -23,7 +25,9 @@ const PAGE_TITLES = {
   'is-emirleri':      ['İş Emirleri',        'Servis takibi'],
   'personel':         ['Personel',           'Çalışan yönetimi'],
   'tanimlamalar':     ['Tanımlamalar',       'Marka, model ve parça yönetimi'],
-  'raporlar':         ['Raporlar',           'İstatistik ve analizler'],
+  'bildirimler':      ['Bildirimler',        'SMS ve e-posta şablonları'],
+  'raporlar':         ['Özet Rapor',         'İstatistik ve analizler'],
+  'detay-rapor':      ['Detay Rapor',        'Kendi raporunu oluştur'],
   'yonetici-paneli':  ['Yönetici Paneli',   '🔒 Sadece admin'],
 }
 
@@ -40,6 +44,7 @@ const Dashboard = () => {
   const [acikIsEmri, setAcikIsEmri] = useState(null)
   const [profile, setProfile] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [cikisArmed, setCikisArmed] = useState(false)
   const { user, signOut, isAdmin } = useAuth()
   const navigate = useNavigate()
 
@@ -70,7 +75,9 @@ const Dashboard = () => {
       case 'is-emirleri':     return <IsEmirleri acikIsEmri={acikIsEmri} onAcikIsEmriTemizle={() => setAcikIsEmri(null)} />
       case 'personel':        return <Personel />
       case 'tanimlamalar':    return <Tanimlamalar />
+      case 'bildirimler':     return ustaPlusMi ? <Bildirimler /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
       case 'raporlar':        return ustaPlusMi ? <Raporlar /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
+      case 'detay-rapor':     return ustaPlusMi ? <DetayRapor /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
       case 'yonetici-paneli': return isAdmin ? <YoneticiPaneli /> : <div className="empty-state"><p>Erişim yetkiniz yok.</p></div>
       default:                return <GenelBakis />
     }
@@ -110,13 +117,15 @@ const Dashboard = () => {
           {BOTTOM_NAV.map(({ id, Icon, label, center }) => {
             const isActive = activePage === id
             const isCikis = id === 'cikis'
+            const cikisOnayGosteriliyor = isCikis && cikisArmed
             return (
               <button
                 key={id}
                 className={`bottom-nav-item ${isActive ? 'active' : ''} ${center ? 'center-nav' : ''} ${isCikis ? 'logout' : ''}`}
                 onClick={() => {
                   if (isCikis) {
-                    if (window.confirm('Çıkış yapmak istediğinize emin misiniz?')) handleSignOut()
+                    if (cikisArmed) { setCikisArmed(false); handleSignOut() }
+                    else { setCikisArmed(true); setTimeout(() => setCikisArmed(false), 3000) }
                   } else {
                     handleSetActivePage(id)
                   }
@@ -125,10 +134,12 @@ const Dashboard = () => {
                 <span className="nav-icon-mobile">
                   <Icon
                     size={20}
-                    color={isActive && center ? '#fff' : isActive ? '#e5484d' : '#4a5068'}
+                    color={cikisOnayGosteriliyor ? '#e5484d' : isActive && center ? '#fff' : isActive ? '#e5484d' : '#4a5068'}
                   />
                 </span>
-                <span className="nav-label-mobile">{label}</span>
+                <span className="nav-label-mobile" style={cikisOnayGosteriliyor ? { color: '#e5484d', fontWeight: 700 } : {}}>
+                  {cikisOnayGosteriliyor ? 'Emin misin?' : label}
+                </span>
               </button>
             )
           })}
