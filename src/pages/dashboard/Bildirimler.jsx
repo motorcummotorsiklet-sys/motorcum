@@ -75,7 +75,7 @@ const ORNEK_DEGERLER = {
   '{arac_marka_model}': 'Honda PCX 150',
   '{tutar}': '₺1.850',
   '{is_emri_no}': '#142',
-  '{dukkan_adi}': 'Vadi Motosiklet Servisi',
+  '{dukkan_adi}': 'Motorcum Motosiklet Servisi',
   '{dukkan_telefon}': '0532 123 45 67',
 }
 
