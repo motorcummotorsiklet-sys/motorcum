@@ -380,8 +380,8 @@ const MusteriDetay = ({ musteri: initialMusteri, onGeri, onIsEmriAc }) => {
       {/* Üst başlık */}
       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <button className="btn btn-secondary btn-sm" onClick={onGeri}>← Geri</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{musteri.ad} {musteri.soyad}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${musteri.ad} ${musteri.soyad}`}>{musteri.ad} {musteri.soyad}</div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.1rem' }}>
             {musteri.telefon && <span>📞 {formatTelefon(musteri.telefon)}</span>}
             {musteri.kan_grubu && <span>🩸 {musteri.kan_grubu}</span>}
