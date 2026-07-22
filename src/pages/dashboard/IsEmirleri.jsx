@@ -171,10 +171,14 @@ const IsEmriForm = ({ onKaydet, onIptal }) => {
       if (parca_id) setParcaListesi(prev => [...prev, { id: parca_id, isim, birim_fiyat: parcaForm.birim_fiyat }])
     }
     const toplam = parseFloat(eklenecekParca.birim_fiyat || 0) * parseFloat(eklenecekParca.miktar || 1)
-    const yeniParcalar = [...parcalar, { ...eklenecekParca, toplam }]
-    setParcalar(yeniParcalar)
-    const yeniToplam = yeniParcalar.reduce((s, p) => s + parseFloat(p.toplam || 0), 0)
-    setForm(f => ({ ...f, toplam_tutar: yeniToplam.toFixed(2) }))
+    // Fonksiyonel state güncellemesi kullanılır — await sonrası "parcalar" değişkeni
+    // eski (stale) olabileceğinden, React'ın garantili en-güncel "prev" değeri kullanılır.
+    setParcalar(prev => {
+      const yeniParcalar = [...prev, { ...eklenecekParca, toplam }]
+      const yeniToplam = yeniParcalar.reduce((s, p) => s + parseFloat(p.toplam || 0), 0)
+      setForm(f => ({ ...f, toplam_tutar: yeniToplam.toFixed(2) }))
+      return yeniParcalar
+    })
     setParcaForm({ parca_id: '', parca_isim: '', miktar: 1, birim_fiyat: 0 })
     setTimeout(() => {
       if (parcaListeRef.current) parcaListeRef.current.scrollTop = parcaListeRef.current.scrollHeight
@@ -733,6 +737,20 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
     else setYeniParca(prev => ({ ...prev, parca_id: id }))
   }
 
+  // Bu iş emrine ait TÜM parçaları veritabanından taze çekip toplamı hesaplar
+  // ve is_emirleri.toplam_tutar'ı buna göre günceller. Hafızadaki (stale olabilecek)
+  // parcalar state'ine güvenmez — bu sayede art arda hızlı ekleme/silmede yarış
+  // durumu (race condition) yaşanmaz, toplam her zaman doğru olur.
+  const parcalariYenidenHesapla = async () => {
+    const { data: guncelParcalar } = await supabase.from('is_emri_parcalari').select('*').eq('is_emri_id', isEmriId).order('created_at')
+    const guncelListe = guncelParcalar || []
+    setParcalar(guncelListe)
+    const yeniToplam = guncelListe.reduce((s, p) => s + parseFloat(p.toplam || 0), 0)
+    await supabase.from('is_emirleri').update({ toplam_tutar: yeniToplam }).eq('id', isEmriId)
+    if (onTutarGuncelle) onTutarGuncelle(yeniToplam)
+    return yeniToplam
+  }
+
   const handleEkle = async () => {
     if (!yeniParca.parca_isim.trim()) return
     setEkleniyor(true)
@@ -743,21 +761,16 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
       if (parca_id) setParcaListesi(prev => [...prev, { id: parca_id, isim, birim_fiyat: yeniParca.birim_fiyat }])
     }
     const toplam = parseFloat(kaydedilecek.miktar || 1) * parseFloat(kaydedilecek.birim_fiyat || 0)
-    const { data, error } = await supabase.from('is_emri_parcalari').insert({
+    const { error } = await supabase.from('is_emri_parcalari').insert({
       is_emri_id: isEmriId,
       parca_id: kaydedilecek.parca_id || null,
       parca_isim: kaydedilecek.parca_isim,
       miktar: parseFloat(kaydedilecek.miktar || 1),
       birim_fiyat: parseFloat(kaydedilecek.birim_fiyat || 0),
       toplam,
-    }).select().single()
-    if (!error && data) {
-      const yeniParcalar = [...parcalar, data]
-      setParcalar(yeniParcalar)
-      // Toplam tutarı güncelle (parça toplamı + işçilik)
-      const yeniToplam = yeniParcalar.reduce((s, p) => s + parseFloat(p.toplam || 0), 0)
-      await supabase.from('is_emirleri').update({ toplam_tutar: yeniToplam }).eq('id', isEmriId)
-      if (onTutarGuncelle) onTutarGuncelle(yeniToplam)
+    })
+    if (!error) {
+      await parcalariYenidenHesapla()
       setYeniParca({ parca_id: '', parca_isim: '', miktar: 1, birim_fiyat: 0 })
       setFormAcik(false)
     }
@@ -768,11 +781,7 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
     if (silmeOnayId !== id) { setSilmeOnayId(id); return }
     setSilmeOnayId(null)
     await supabase.from('is_emri_parcalari').delete().eq('id', id)
-    const kalanlar = parcalar.filter(p => p.id !== id)
-    setParcalar(kalanlar)
-    const yeniToplam = kalanlar.reduce((s, p) => s + parseFloat(p.toplam || 0), 0)
-    await supabase.from('is_emirleri').update({ toplam_tutar: yeniToplam }).eq('id', isEmriId)
-    if (onTutarGuncelle) onTutarGuncelle(yeniToplam)
+    await parcalariYenidenHesapla()
   }
 
   const handleGuncelle = async (id, field, value) => {
@@ -785,11 +794,7 @@ const ParcaYonetim = ({ isEmriId, parcalar, setParcalar, kapali = false, onTutar
       [field]: field === 'miktar' ? yeniMiktar : yeniFiyat,
       toplam: yeniToplam
     }).eq('id', id)
-    const guncellenmis = parcalar.map(p => p.id === id ? { ...p, [field]: field === 'miktar' ? yeniMiktar : yeniFiyat, toplam: yeniToplam } : p)
-    setParcalar(guncellenmis)
-    const yeniToplamTutar = guncellenmis.reduce((s, p) => s + parseFloat(p.toplam || 0), 0)
-    await supabase.from('is_emirleri').update({ toplam_tutar: yeniToplamTutar }).eq('id', isEmriId)
-    if (onTutarGuncelle) onTutarGuncelle(yeniToplamTutar)
+    await parcalariYenidenHesapla()
   }
 
   const toplam = parcalar.reduce((s, p) => s + parseFloat(p.toplam || 0), 0)

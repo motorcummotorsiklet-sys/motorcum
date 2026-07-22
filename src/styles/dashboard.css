@@ -599,19 +599,19 @@ tr:last-child td { border-bottom: none; }
 
 /* ─── LIGHT MOD SIDEBAR ÖZEL ─── */
 [data-theme="light"] .sidebar {
-  background: #1a1d23;
+  background: var(--bg-surface);
 }
 [data-theme="light"] .sidebar-brand { border-bottom-color: rgba(0,0,0,.08); }
-[data-theme="light"] .nav-section-title { color: #4a5060; }
-[data-theme="light"] .nav-item { color: #9aa0b0; }
-[data-theme="light"] .nav-item:hover { background: rgba(255,255,255,.07); color: #d0d5e0; }
-[data-theme="light"] .nav-item.active { background: rgba(229,72,77,.15); color: #ff7070; }
-[data-theme="light"] .user-email { color: #6a7080; }
-[data-theme="light"] .signout-btn { color: #5a6070; }
-[data-theme="light"] .signout-btn:hover { color: #ff7070; background: rgba(229,72,77,.1); }
-[data-theme="light"] .sidebar-footer { border-top-color: rgba(255,255,255,.06); }
-[data-theme="light"] .sidebar-brand span { color: #f0f2f6; }
-[data-theme="light"] .user-name { color: #f0f2f6; }
+[data-theme="light"] .sidebar-brand span { color: var(--text-primary); }
+[data-theme="light"] .nav-section-title { color: var(--text-muted); }
+[data-theme="light"] .nav-item { color: var(--text-secondary); }
+[data-theme="light"] .nav-item:hover { background: rgba(0,0,0,.045); color: var(--text-primary); }
+[data-theme="light"] .nav-item.active { background: rgba(229,72,77,.1); color: #e5484d; }
+[data-theme="light"] .user-name { color: var(--text-primary); }
+[data-theme="light"] .user-email { color: var(--text-muted); }
+[data-theme="light"] .signout-btn { color: var(--text-secondary); }
+[data-theme="light"] .signout-btn:hover { color: #e5484d; background: rgba(229,72,77,.08); }
+[data-theme="light"] .sidebar-footer { border-top-color: rgba(0,0,0,.08); }
 
 /* ─── LIGHT MOD KART VE TABLO ─── */
 [data-theme="light"] .stat-label { color: #404858 !important; }
