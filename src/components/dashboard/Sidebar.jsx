@@ -32,6 +32,16 @@ const IconTable = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 )
 
+// Bayi/dükkan (cari hesap) ikonu
+const IconStore = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9l1.5-5h15L21 9"/>
+    <path d="M3 9a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0"/>
+    <path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/>
+    <path d="M9.5 20v-5.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V20"/>
+  </svg>
+)
+
 const NAV = [
   {
     section: 'Genel',
@@ -43,6 +53,7 @@ const NAV = [
       { id: 'musteriler',  Icon: IconUsers,    label: 'Müşteriler' },
       { id: 'is-emirleri', Icon: IconTool,     label: 'İş Emirleri' },
       { id: 'personel',    Icon: IconUser,     label: 'Personel' },
+      { id: 'bayi-hesaplari', Icon: IconStore, label: 'Bayi Hesapları', adminSiniri: true },
     ]
   },
   {
@@ -84,10 +95,11 @@ const Sidebar = ({ activePage, setActivePage, profile, mobileOpen, setMobileOpen
     : '?'
 
   const ustaPlusMi = ['admin', 'usta', 'yönetici'].includes(profile?.rol)
+  const adminMi = ['admin', 'yönetici'].includes(profile?.rol)
   const navGruplari = [
     ...NAV.map(g => ({
       ...g,
-      items: g.items.filter(item => !item.ustaPlusSiniri || ustaPlusMi)
+      items: g.items.filter(item => (!item.ustaPlusSiniri || ustaPlusMi) && (!item.adminSiniri || adminMi))
     })),
     ...(isAdmin ? [ADMIN_NAV] : [])
   ].filter(g => g.items.length > 0)
