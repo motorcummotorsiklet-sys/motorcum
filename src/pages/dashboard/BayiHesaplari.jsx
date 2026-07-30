@@ -445,17 +445,27 @@ td{padding:7px 8px;border-bottom:1px solid #eee;font-size:11.5px}
   <div class="footer">MOTORCUM &middot; ${new Date().toLocaleString('tr-TR')}</div>
 </body></html>`
 
-    const blob = new Blob([html], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
-    const pencere = window.open(url, '_blank')
-    if (pencere) {
-      pencere.addEventListener('load', () => {
-        pencere.print()
-        setTimeout(() => URL.revokeObjectURL(url), 5000)
-      })
-    } else {
-      alert('Yeni sekme açılamadı — tarayıcın popup engelleyicisi devrede olabilir, bu site için popup izni ver ve tekrar dene.')
-      URL.revokeObjectURL(url)
+    // Gizli bir iframe üzerinden yazdırma — hiç yeni pencere/sekme açmadığı için
+    // popup engelleyiciye asla takılmaz.
+    const eskiIframe = document.getElementById('bayi-cikti-iframe')
+    if (eskiIframe) eskiIframe.remove()
+
+    const iframe = document.createElement('iframe')
+    iframe.id = 'bayi-cikti-iframe'
+    iframe.style.position = 'fixed'
+    iframe.style.right = '0'
+    iframe.style.bottom = '0'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = '0'
+    document.body.appendChild(iframe)
+
+    iframe.srcdoc = html
+    iframe.onload = () => {
+      setTimeout(() => {
+        iframe.contentWindow.focus()
+        iframe.contentWindow.print()
+      }, 100)
     }
   }
 
