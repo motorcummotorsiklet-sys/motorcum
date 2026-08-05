@@ -8,3 +8,10 @@ createRoot(document.getElementById('root')).render(
     <ThemeProvider><App /></ThemeProvider>
   </StrictMode>,
 )
+
+// PWA — telefon/masaüstü ana ekranına uygulama gibi kurulabilmesi için
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}

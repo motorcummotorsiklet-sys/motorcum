@@ -12,6 +12,7 @@ import Personel from './dashboard/Personel'
 import Raporlar from './dashboard/Raporlar'
 import DetayRapor from './dashboard/DetayRapor'
 import Bildirimler from './dashboard/Bildirimler'
+import BayiHesaplari from './dashboard/BayiHesaplari'
 import Tanimlamalar from './dashboard/Tanimlamalar'
 import YoneticiPaneli from './dashboard/YoneticiPaneli'
 import { IconDashboard, IconUsers, IconTool, IconSettings, IconChart, IconLogout, IconMenu } from '../components/Icons'
@@ -24,6 +25,7 @@ const PAGE_TITLES = {
   'musteriler':       ['Müşteriler',         'Kayıtlı müşteriler'],
   'is-emirleri':      ['İş Emirleri',        'Servis takibi'],
   'personel':         ['Personel',           'Çalışan yönetimi'],
+  'bayi-hesaplari':   ['Bayi Hesapları',     'Mal verilen dükkanların cari hesabı'],
   'tanimlamalar':     ['Tanımlamalar',       'Marka, model ve parça yönetimi'],
   'bildirimler':      ['Bildirimler',        'SMS ve e-posta şablonları'],
   'raporlar':         ['Özet Rapor',         'İstatistik ve analizler'],
@@ -62,6 +64,7 @@ const Dashboard = () => {
 
   // Admin koruma: yönetici paneline sadece admin erişebilir
   const ustaPlusMi = ['admin', 'usta', 'yönetici'].includes(profile?.rol)
+  const adminMi = ['admin', 'yönetici'].includes(profile?.rol)
 
   const handleSetActivePage = (page) => {
     if (page === 'yonetici-paneli' && !isAdmin) return
@@ -74,6 +77,7 @@ const Dashboard = () => {
       case 'musteriler':      return <Musteriler onIsEmriAc={(is) => { setAcikIsEmri(is); setActivePage('is-emirleri') }} />
       case 'is-emirleri':     return <IsEmirleri acikIsEmri={acikIsEmri} onAcikIsEmriTemizle={() => setAcikIsEmri(null)} />
       case 'personel':        return <Personel />
+      case 'bayi-hesaplari':  return adminMi ? <BayiHesaplari /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
       case 'tanimlamalar':    return <Tanimlamalar />
       case 'bildirimler':     return ustaPlusMi ? <Bildirimler /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
       case 'raporlar':        return ustaPlusMi ? <Raporlar /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
