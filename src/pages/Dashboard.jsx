@@ -114,7 +114,7 @@ const Dashboard = () => {
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-            <MotorSaat />
+            <div className="desktop-only"><MotorSaat /></div>
             <ThemeToggle />
           </div>
         </div>
@@ -144,7 +144,7 @@ const Dashboard = () => {
                 <span className="nav-icon-mobile">
                   <Icon
                     size={20}
-                    color={cikisOnayGosteriliyor ? '#e5484d' : isActive && center ? '#fff' : isActive ? '#e5484d' : '#4a5068'}
+                    color={cikisOnayGosteriliyor ? '#e5484d' : isActive && center ? '#fff' : isActive ? '#e5484d' : 'var(--text-muted)'}
                   />
                 </span>
                 <span className="nav-label-mobile" style={cikisOnayGosteriliyor ? { color: '#e5484d', fontWeight: 700 } : {}}>

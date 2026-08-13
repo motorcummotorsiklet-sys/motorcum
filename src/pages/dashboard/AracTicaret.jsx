@@ -317,8 +317,8 @@ const AracTicaret = () => {
   const filtrelenmis = araclar.filter(a => {
     if (durumFiltre !== 'hepsi' && a.durum !== durumFiltre) return false
     if (turFiltre !== 'hepsi' && a.tur !== turFiltre) return false
-    const aramaMetni = `${a.marka} ${a.model} ${a.plaka} ${a.satici_adi}`.toLowerCase()
-    if (arama && !aramaMetni.includes(arama.toLowerCase())) return false
+    const aramaMetni = `${a.marka} ${a.model} ${a.plaka} ${a.satici_adi}`.toLocaleLowerCase('tr-TR')
+    if (arama && !aramaMetni.includes(arama.toLocaleLowerCase('tr-TR'))) return false
     return true
   })
 
@@ -395,7 +395,11 @@ const AracTicaret = () => {
             <div style={{ background: 'var(--bg-elevated)', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>📥 Alım Bilgileri</div>
               <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>{seciliArac.satici_adi}</div>
-              {seciliArac.satici_telefon && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{formatTelefon(seciliArac.satici_telefon)}</div>}
+              {seciliArac.satici_telefon && (
+                <a href={`tel:${seciliArac.satici_telefon}`} onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text-muted)', textDecoration: 'none' }}>
+                  📞 {formatTelefon(seciliArac.satici_telefon)} <span style={{ color: '#22c55e', fontWeight: 600 }}>· Ara</span>
+                </a>
+              )}
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>{tarihFormat(seciliArac.alis_tarihi)}</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#e5484d', marginTop: 6 }}>{paraFormat(seciliArac.alis_fiyati)}</div>
             </div>
@@ -403,7 +407,11 @@ const AracTicaret = () => {
               <div style={{ background: 'var(--bg-elevated)', borderRadius: 10, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>📤 Satış Bilgileri</div>
                 <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>{seciliArac.alici_adi || '-'}</div>
-                {seciliArac.alici_telefon && <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{formatTelefon(seciliArac.alici_telefon)}</div>}
+                {seciliArac.alici_telefon && (
+                  <a href={`tel:${seciliArac.alici_telefon}`} onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text-muted)', textDecoration: 'none' }}>
+                    📞 {formatTelefon(seciliArac.alici_telefon)} <span style={{ color: '#22c55e', fontWeight: 600 }}>· Ara</span>
+                  </a>
+                )}
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>{tarihFormat(seciliArac.satis_tarihi)}</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e', marginTop: 6 }}>{paraFormat(seciliArac.satis_fiyati)}</div>
               </div>

@@ -601,7 +601,7 @@ tr:last-child td { border-bottom: none; }
     display: flex; align-items: center; justify-content: center;
     border-radius: 10px;
   }
-  .bottom-nav-item .nav-icon-mobile i { font-size: 20px; color: #3a3a45; }
+  .bottom-nav-item .nav-icon-mobile i { font-size: 20px; color: var(--text-muted); }
   .bottom-nav-item.active .nav-icon-mobile i { color: #e5484d; }
   .bottom-nav-item.active.center-nav .nav-icon-mobile {
     background: #e5484d;
@@ -609,7 +609,7 @@ tr:last-child td { border-bottom: none; }
     box-shadow: 0 4px 16px rgba(229,72,77,.3);
   }
   .bottom-nav-item.active.center-nav .nav-icon-mobile i { color: #fff; }
-  .bottom-nav-item .nav-label-mobile { font-size: 9px; color: #2a2a34; font-weight: 500; letter-spacing: .02em; }
+  .bottom-nav-item .nav-label-mobile { font-size: 9px; color: var(--text-muted); font-weight: 500; letter-spacing: .02em; }
   .bottom-nav-item.active .nav-label-mobile { color: #e5484d; font-weight: 600; }
   .bottom-nav-item.logout .nav-icon-mobile i { color: #e5484d !important; }
   .bottom-nav-item.logout .nav-label-mobile { color: #e5484d !important; }
