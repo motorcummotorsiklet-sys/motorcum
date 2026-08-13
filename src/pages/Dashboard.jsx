@@ -105,6 +105,9 @@ const Dashboard = () => {
       <div className="dashboard-main">
         <div className="topbar">
           <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+            <button className="mobile-menu-btn" onClick={() => setMobileOpen(true)} aria-label="Menüyü aç">
+              <IconMenu size={20} />
+            </button>
             <div>
               <div className="topbar-title">{title}</div>
               <div className="topbar-subtitle">{subtitle}</div>

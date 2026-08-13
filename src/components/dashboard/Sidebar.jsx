@@ -122,7 +122,7 @@ const Sidebar = ({ activePage, setActivePage, profile, mobileOpen, setMobileOpen
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:99 }} />
       )}
 
-      <div className="sidebar" style={mobileOpen ? { display:'flex', zIndex:100 } : {}}>
+      <div className={`sidebar${mobileOpen ? ' sidebar-mobil-acik' : ''}`}>
         <div className="sidebar-brand" onClick={() => { setActivePage('genel'); setMobileOpen(false) }}
           style={{ cursor: 'pointer' }}>
           <img
