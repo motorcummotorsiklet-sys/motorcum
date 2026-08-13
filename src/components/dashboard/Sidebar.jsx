@@ -98,7 +98,7 @@ const Sidebar = ({ activePage, setActivePage, profile, mobileOpen, setMobileOpen
   const handleSignOut = async () => {
     if (!cikisOnay) { setCikisOnay(true); return }
     await signOut()
-    navigate('/login')
+    navigate('/login', { replace: true })
   }
 
   const initials = profile

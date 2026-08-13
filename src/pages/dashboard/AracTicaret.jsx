@@ -292,8 +292,10 @@ const AracTicaret = () => {
       tutar: parseFloat(giderForm.tutar),
       tarih: giderForm.tarih,
     })
-    setGiderForm({ aciklama: '', tutar: '', tarih: new Date().toISOString().slice(0,10) })
-    setGiderAcik(false)
+    // Popup kapanmaz — sadece açıklama/tutar temizlenir (tarih aynı kalır,
+    // aynı güne ait art arda gider girerken tekrar seçmeye gerek kalmasın),
+    // kullanıcı istediği kadar gider ekleyip sonunda kendi kapatır.
+    setGiderForm(f => ({ aciklama: '', tutar: '', tarih: f.tarih }))
     setKaydediliyor(false)
     await fetchGiderler(seciliArac.id)
     fetchAraclar()
@@ -553,13 +555,29 @@ const AracTicaret = () => {
                 <button className="modal-close" onClick={() => setGiderAcik(false)}>✕</button>
               </div>
               <div className="modal-body">
-                <div className="field"><label>Açıklama *</label><input value={giderForm.aciklama} onChange={e => setGiderForm(f => ({ ...f, aciklama: e.target.value }))} placeholder="Örn. Boya, nakliye, yedek parça..." /></div>
+                <div className="field"><label>Açıklama *</label><input autoFocus value={giderForm.aciklama} onChange={e => setGiderForm(f => ({ ...f, aciklama: e.target.value }))} placeholder="Örn. Boya, nakliye, yedek parça..." /></div>
                 <div className="field"><label>Tutar *</label><TutarGirisi value={giderForm.tutar} onChange={v => setGiderForm(f => ({ ...f, tutar: v }))} /></div>
                 <div className="field"><label>Tarih</label><TarihGirisi value={giderForm.tarih} onChange={v => setGiderForm(f => ({ ...f, tarih: v }))} /></div>
+
+                {giderler.length > 0 && (
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+                      Bu araca eklenen giderler ({giderler.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 130, overflowY: 'auto' }}>
+                      {giderler.map(g => (
+                        <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, background: 'var(--bg-elevated)', borderRadius: 6, padding: '6px 10px' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>{g.aciklama}</span>
+                          <span style={{ color: '#e5484d', fontWeight: 600 }}>{paraFormat(g.tutar)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setGiderAcik(false)}>İptal</button>
-                <button className="btn btn-primary" onClick={giderEkle} disabled={kaydediliyor || !giderForm.aciklama.trim() || !giderForm.tutar}>{kaydediliyor ? 'Kaydediliyor...' : 'Ekle'}</button>
+                <button className="btn btn-secondary" onClick={() => setGiderAcik(false)}>Bitti — Kapat</button>
+                <button className="btn btn-primary" onClick={giderEkle} disabled={kaydediliyor || !giderForm.aciklama.trim() || !giderForm.tutar}>{kaydediliyor ? 'Kaydediliyor...' : '+ Ekle ve Devam Et'}</button>
               </div>
             </div>
           </div>

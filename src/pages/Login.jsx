@@ -18,7 +18,7 @@ const Login = () => {
     setLoading(true)
     const { error } = await signIn(kullaniciAdi, password)
     if (error) setError('Kullanıcı adı veya şifre hatalı.')
-    else navigate('/dashboard')
+    else navigate('/dashboard', { replace: true })
     setLoading(false)
   }
 
