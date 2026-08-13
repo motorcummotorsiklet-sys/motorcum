@@ -542,6 +542,16 @@ tr:last-child td { border-bottom: none; }
     grid-template-columns: 1fr !important;
   }
 
+  /* Araç Alım-Satım liste satırları — mobilde alt alta dizilsin, taşma olmasın */
+  .arac-satir {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  .arac-satir-sag {
+    width: 100%;
+    justify-content: space-between !important;
+  }
+
   .bottom-nav {
     display: block;
     position: fixed;

@@ -323,6 +323,33 @@ const AracTicaret = () => {
   })
 
   // ─── Rapor ───
+  // Hazır dönem seçimi — Özet Rapor'daki ile aynı doğru takvim mantığı
+  // (kayan pencere değil, gerçek Pazartesi-Pazar / ayın 1'i-sonu / 1 Ocak-31 Aralık)
+  const [aktifDonem, setAktifDonem] = useState('')
+  const donemSec = (tip) => {
+    const simdi = new Date()
+    let baslangic, bitis
+    if (tip === 'bugun') {
+      baslangic = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate())
+      bitis = baslangic
+    } else if (tip === 'hafta') {
+      const gunSirasi = simdi.getDay()
+      const pazartesiFarki = gunSirasi === 0 ? 6 : gunSirasi - 1
+      baslangic = new Date(simdi.getFullYear(), simdi.getMonth(), simdi.getDate() - pazartesiFarki)
+      bitis = new Date(baslangic.getFullYear(), baslangic.getMonth(), baslangic.getDate() + 6)
+    } else if (tip === 'ay') {
+      baslangic = new Date(simdi.getFullYear(), simdi.getMonth(), 1)
+      bitis = new Date(simdi.getFullYear(), simdi.getMonth() + 1, 0)
+    } else if (tip === 'yil') {
+      baslangic = new Date(simdi.getFullYear(), 0, 1)
+      bitis = new Date(simdi.getFullYear(), 11, 31)
+    }
+    const isoYaz = (d) => d.toISOString().slice(0, 10)
+    setRaporBaslangic(isoYaz(baslangic))
+    setRaporBitis(isoYaz(bitis))
+    setAktifDonem(tip)
+  }
+
   const raporVerisi = satilanlar.filter(a => {
     if (raporBaslangic && a.satis_tarihi < raporBaslangic) return false
     if (raporBitis && a.satis_tarihi > raporBitis) return false
@@ -364,7 +391,7 @@ const AracTicaret = () => {
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: seciliArac.durum === 'satildi' ? '1fr 1fr' : '1fr', gap: 12, padding: '0 18px 16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: seciliArac.durum === 'satildi' ? 'repeat(auto-fit, minmax(220px, 1fr))' : '1fr', gap: 12, padding: '0 18px 16px' }}>
             <div style={{ background: 'var(--bg-elevated)', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>📥 Alım Bilgileri</div>
               <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>{seciliArac.satici_adi}</div>
@@ -587,14 +614,24 @@ const AracTicaret = () => {
         <div className="table-card" style={{ marginBottom: 16 }}>
           <div className="table-header"><span className="table-title">📊 Satış Raporu</span></div>
           <div style={{ padding: '12px 18px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {[{id:'bugun',label:'Bugün'},{id:'hafta',label:'Bu Hafta'},{id:'ay',label:'Bu Ay'},{id:'yil',label:'Bu Yıl'}].map(d => (
+              <button key={d.id} onClick={() => donemSec(d.id)} style={{
+                fontSize: 11.5, fontWeight: 600, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                border: `1px solid ${aktifDonem===d.id ? '#e5484d' : 'var(--border)'}`,
+                background: aktifDonem===d.id ? 'rgba(229,72,77,.1)' : 'var(--bg-elevated)',
+                color: aktifDonem===d.id ? '#e5484d' : 'var(--text-secondary)',
+              }}>{d.label}</button>
+            ))}
+          </div>
+          <div style={{ padding: '0 18px 12px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 12px' }}>
               <span style={{ fontSize: 12 }}>📅</span>
-              <input type="date" value={raporBaslangic} onChange={e => setRaporBaslangic(e.target.value)} style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'Inter, sans-serif', outline: 'none', padding: '4px 0', width: 118 }} />
+              <input type="date" value={raporBaslangic} onChange={e => { setRaporBaslangic(e.target.value); setAktifDonem('') }} style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'Inter, sans-serif', outline: 'none', padding: '4px 0', width: 118 }} />
               <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-              <input type="date" value={raporBitis} onChange={e => setRaporBitis(e.target.value)} style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'Inter, sans-serif', outline: 'none', padding: '4px 0', width: 118 }} />
+              <input type="date" value={raporBitis} onChange={e => { setRaporBitis(e.target.value); setAktifDonem('') }} style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'Inter, sans-serif', outline: 'none', padding: '4px 0', width: 118 }} />
             </div>
             {(raporBaslangic || raporBitis) && (
-              <button className="btn btn-secondary btn-sm" onClick={() => { setRaporBaslangic(''); setRaporBitis('') }}>✕ Temizle</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => { setRaporBaslangic(''); setRaporBitis(''); setAktifDonem('') }}>✕ Temizle</button>
             )}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, padding: '0 18px 18px' }}>
@@ -624,7 +661,7 @@ const AracTicaret = () => {
         ) : filtrelenmis.length === 0 ? (
           <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>Kayıt bulunamadı.</div>
         ) : filtrelenmis.map(a => (
-          <div key={a.id} onClick={() => aracSec(a)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 18px', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+          <div key={a.id} className="arac-satir" onClick={() => aracSec(a)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 18px', borderBottom: '1px solid var(--border)', cursor: 'pointer', flexWrap: 'wrap' }}
             onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
@@ -638,7 +675,7 @@ const AracTicaret = () => {
                 <span>{tarihFormat(a.alis_tarihi)}</span>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+            <div className="arac-satir-sag" style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               {a.durum === 'satildi' ? (
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontWeight: 700, fontSize: 14, color: a.kar >= 0 ? '#22c55e' : '#e5484d' }}>
