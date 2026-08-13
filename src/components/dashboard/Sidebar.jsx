@@ -42,6 +42,16 @@ const IconStore = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 )
 
+// Araç alım-satım (el değiştirme) ikonu
+const IconSwap = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 2l4 4-4 4"/>
+    <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+    <path d="M7 22l-4-4 4-4"/>
+    <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+  </svg>
+)
+
 const NAV = [
   {
     section: 'Genel',
@@ -54,6 +64,7 @@ const NAV = [
       { id: 'is-emirleri', Icon: IconTool,     label: 'İş Emirleri' },
       { id: 'personel',    Icon: IconUser,     label: 'Personel' },
       { id: 'bayi-hesaplari', Icon: IconStore, label: 'Bayi Hesapları', adminSiniri: true },
+      { id: 'arac-ticaret',   Icon: IconSwap,  label: 'Araç Alım-Satım', adminSiniri: true },
     ]
   },
   {

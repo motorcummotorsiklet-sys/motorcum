@@ -13,6 +13,7 @@ import Raporlar from './dashboard/Raporlar'
 import DetayRapor from './dashboard/DetayRapor'
 import Bildirimler from './dashboard/Bildirimler'
 import BayiHesaplari from './dashboard/BayiHesaplari'
+import AracTicaret from './dashboard/AracTicaret'
 import Tanimlamalar from './dashboard/Tanimlamalar'
 import YoneticiPaneli from './dashboard/YoneticiPaneli'
 import { IconDashboard, IconUsers, IconTool, IconSettings, IconChart, IconLogout, IconMenu } from '../components/Icons'
@@ -26,6 +27,7 @@ const PAGE_TITLES = {
   'is-emirleri':      ['İş Emirleri',        'Servis takibi'],
   'personel':         ['Personel',           'Çalışan yönetimi'],
   'bayi-hesaplari':   ['Bayi Hesapları',     'Mal verilen dükkanların cari hesabı'],
+  'arac-ticaret':     ['Araç Alım-Satım',    'Motor/araba ticareti — ayrı kâr-zarar takibi'],
   'tanimlamalar':     ['Tanımlamalar',       'Marka, model ve parça yönetimi'],
   'bildirimler':      ['Bildirimler',        'SMS ve e-posta şablonları'],
   'raporlar':         ['Özet Rapor',         'İstatistik ve analizler'],
@@ -78,6 +80,7 @@ const Dashboard = () => {
       case 'is-emirleri':     return <IsEmirleri acikIsEmri={acikIsEmri} onAcikIsEmriTemizle={() => setAcikIsEmri(null)} />
       case 'personel':        return <Personel />
       case 'bayi-hesaplari':  return adminMi ? <BayiHesaplari /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
+      case 'arac-ticaret':    return adminMi ? <AracTicaret /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
       case 'tanimlamalar':    return <Tanimlamalar />
       case 'bildirimler':     return ustaPlusMi ? <Bildirimler /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
       case 'raporlar':        return ustaPlusMi ? <Raporlar /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>
