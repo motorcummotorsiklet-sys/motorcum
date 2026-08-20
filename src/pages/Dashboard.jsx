@@ -44,7 +44,7 @@ const BOTTOM_NAV = [
 ]
 
 const Dashboard = () => {
-  const [activePage, setActivePage] = useState('genel')
+  const [activePage, setActivePage] = useState(() => window.history.state?.page || sessionStorage.getItem('motorcum_aktif_sayfa') || 'genel')
   const [acikIsEmri, setAcikIsEmri] = useState(null)
   const [profile, setProfile] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -59,7 +59,32 @@ const Dashboard = () => {
     }
   }, [user])
 
+  // Sayfa yenilenince (F5 / mobil yenile) aynı ekranda kalınsın diye her
+  // sayfa değişiminde sessionStorage'a da yazıyoruz — bu, tarayıcı sekmesi
+  // kapanana kadar kalıcı, useState'in ilk değeri de buradan okunuyor.
+  useEffect(() => {
+    sessionStorage.setItem('motorcum_aktif_sayfa', activePage)
+  }, [activePage])
+
+  // Dashboard içindeki sayfa geçişleri (Müşteriler → İş Emirleri gibi) tarayıcı
+  // geçmişine hiç yansımıyordu — bu yüzden geri tuşu doğrudan login'e (uygulamadan
+  // dışarı) atıyordu. Her sayfa değişiminde tarayıcı geçmişine bir kayıt ekleyip,
+  // geri/ileri tuşlarını dinleyerek dashboard İÇİNDE bir önceki sayfaya dönmesini
+  // sağlıyoruz. URL hep "/dashboard" kalır, sadece geçmiş state'i kullanılır.
+  useEffect(() => {
+    if (!window.history.state?.page) {
+      window.history.replaceState({ page: activePage }, '')
+    }
+    const handlePopState = (e) => {
+      const sayfa = e.state?.page || sessionStorage.getItem('motorcum_aktif_sayfa') || 'genel'
+      setActivePage(sayfa)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
   const handleSignOut = async () => {
+    sessionStorage.removeItem('motorcum_aktif_sayfa')
     await signOut()
     navigate('/login', { replace: true })
   }
@@ -70,13 +95,15 @@ const Dashboard = () => {
 
   const handleSetActivePage = (page) => {
     if (page === 'yonetici-paneli' && !isAdmin) return
+    if (page === activePage) return
+    window.history.pushState({ page }, '')
     setActivePage(page)
   }
 
   const renderPage = () => {
     switch (activePage) {
-      case 'genel':           return <GenelBakis onIsEmriAc={(is) => { setAcikIsEmri(is); setActivePage('is-emirleri') }} />
-      case 'musteriler':      return <Musteriler onIsEmriAc={(is) => { setAcikIsEmri(is); setActivePage('is-emirleri') }} />
+      case 'genel':           return <GenelBakis onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} />
+      case 'musteriler':      return <Musteriler onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} />
       case 'is-emirleri':     return <IsEmirleri acikIsEmri={acikIsEmri} onAcikIsEmriTemizle={() => setAcikIsEmri(null)} />
       case 'personel':        return <Personel />
       case 'bayi-hesaplari':  return adminMi ? <BayiHesaplari /> : <div className="empty-state"><p>Bu sayfaya erişim yetkiniz yok.</p></div>

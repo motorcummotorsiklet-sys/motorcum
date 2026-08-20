@@ -97,6 +97,7 @@ const Sidebar = ({ activePage, setActivePage, profile, mobileOpen, setMobileOpen
 
   const handleSignOut = async () => {
     if (!cikisOnay) { setCikisOnay(true); return }
+    sessionStorage.removeItem('motorcum_aktif_sayfa')
     await signOut()
     navigate('/login', { replace: true })
   }
