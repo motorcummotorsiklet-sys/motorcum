@@ -104,7 +104,7 @@ const Dashboard = () => {
 
   const renderPage = () => {
     switch (activePage) {
-      case 'genel':           return <GenelBakis onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} onPlakaSorgulaAc={() => setPlakaSorgulaAcik(true)} />
+      case 'genel':           return <GenelBakis onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} onPlakaSorgulaAc={adminMi ? () => setPlakaSorgulaAcik(true) : null} plakaSorgulaGorunur={adminMi} />
       case 'musteriler':      return <Musteriler onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} />
       case 'is-emirleri':     return <IsEmirleri acikIsEmri={acikIsEmri} onAcikIsEmriTemizle={() => setAcikIsEmri(null)} />
       case 'personel':        return <Personel />
@@ -143,22 +143,26 @@ const Dashboard = () => {
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-            <button
-              onClick={() => setPlakaSorgulaAcik(true)}
-              title="Plaka Sorgula"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                background: 'rgba(229,72,77,.1)', border: '1px solid rgba(229,72,77,.3)',
-                borderRadius: 20, padding: '6px 12px', color: '#e5484d', fontSize: 13, fontWeight: 600,
-              }}
-            >
-              📷 <span className="desktop-only">Plaka Sorgula</span>
-            </button>
+            {adminMi && (
+              <button
+                onClick={() => setPlakaSorgulaAcik(true)}
+                title="Plaka Sorgula"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                  background: 'rgba(229,72,77,.1)', border: '1px solid rgba(229,72,77,.3)',
+                  borderRadius: 20, padding: '6px 12px', color: '#e5484d', fontSize: 13, fontWeight: 600,
+                }}
+              >
+                📷 <span className="desktop-only">Plaka Sorgula</span>
+              </button>
+            )}
             <div className="desktop-only"><MotorSaat /></div>
             <ThemeToggle />
           </div>
         </div>
-        <PlakaSorgula acik={plakaSorgulaAcik} onKapat={() => setPlakaSorgulaAcik(false)} onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} />
+        {adminMi && (
+          <PlakaSorgula acik={plakaSorgulaAcik} onKapat={() => setPlakaSorgulaAcik(false)} onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} />
+        )}
         <div className="page-content">{renderPage()}</div>
       </div>
 
