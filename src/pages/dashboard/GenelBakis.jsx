@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import { IconUsers, IconMotorbike, IconTool, IconLira, IconTrendUp } from '../../components/Icons'
 
-const GenelBakis = ({ onIsEmriAc }) => {
+const GenelBakis = ({ onIsEmriAc, onPlakaSorgulaAc }) => {
   const { profile } = useAuth()
   const gizliRoller = ['teknisyen', 'kullanici']
   const rakamGizli = gizliRoller.includes(profile?.rol) || profile?.rol === 'admin'
@@ -78,6 +78,25 @@ const GenelBakis = ({ onIsEmriAc }) => {
 
   return (
     <div>
+      <div
+        onClick={() => onPlakaSorgulaAc && onPlakaSorgulaAc()}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14,
+          background: 'linear-gradient(135deg, rgba(229,72,77,.12), rgba(229,72,77,.04))',
+          border: '1.5px solid rgba(229,72,77,.3)', borderRadius: 14,
+          padding: '16px 20px', marginBottom: 20, cursor: 'pointer',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ fontSize: 30 }}>📷</div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Plaka Sorgula</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Plakayı fotoğrafla, servis geçmişi anında gelsin</div>
+          </div>
+        </div>
+        <button className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>Tara →</button>
+      </div>
+
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-card-top">

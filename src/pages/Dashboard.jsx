@@ -19,6 +19,7 @@ import YoneticiPaneli from './dashboard/YoneticiPaneli'
 import { IconDashboard, IconUsers, IconTool, IconSettings, IconChart, IconLogout, IconMenu } from '../components/Icons'
 import ThemeToggle from '../components/ThemeToggle'
 import MotorSaat from '../components/dashboard/MotorSaat'
+import PlakaSorgula from '../components/dashboard/PlakaSorgula'
 import '../styles/dashboard.css'
 
 const PAGE_TITLES = {
@@ -49,6 +50,7 @@ const Dashboard = () => {
   const [profile, setProfile] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [cikisArmed, setCikisArmed] = useState(false)
+  const [plakaSorgulaAcik, setPlakaSorgulaAcik] = useState(false)
   const { user, signOut, isAdmin } = useAuth()
   const navigate = useNavigate()
 
@@ -102,7 +104,7 @@ const Dashboard = () => {
 
   const renderPage = () => {
     switch (activePage) {
-      case 'genel':           return <GenelBakis onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} />
+      case 'genel':           return <GenelBakis onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} onPlakaSorgulaAc={() => setPlakaSorgulaAcik(true)} />
       case 'musteriler':      return <Musteriler onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} />
       case 'is-emirleri':     return <IsEmirleri acikIsEmri={acikIsEmri} onAcikIsEmriTemizle={() => setAcikIsEmri(null)} />
       case 'personel':        return <Personel />
@@ -141,10 +143,22 @@ const Dashboard = () => {
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            <button
+              onClick={() => setPlakaSorgulaAcik(true)}
+              title="Plaka Sorgula"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                background: 'rgba(229,72,77,.1)', border: '1px solid rgba(229,72,77,.3)',
+                borderRadius: 20, padding: '6px 12px', color: '#e5484d', fontSize: 13, fontWeight: 600,
+              }}
+            >
+              📷 <span className="desktop-only">Plaka Sorgula</span>
+            </button>
             <div className="desktop-only"><MotorSaat /></div>
             <ThemeToggle />
           </div>
         </div>
+        <PlakaSorgula acik={plakaSorgulaAcik} onKapat={() => setPlakaSorgulaAcik(false)} onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} />
         <div className="page-content">{renderPage()}</div>
       </div>
 
