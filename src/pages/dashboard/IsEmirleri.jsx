@@ -701,10 +701,11 @@ const ParcaAramaSelect = ({ parcaListesi, value, inputValue, onChange, onManual 
         style={{background:'var(--input-bg)', border:'1px solid var(--border)', borderRadius:'7px', padding:'7px 10px', color:'var(--text-primary)', fontSize:'13px', fontFamily:'Inter,sans-serif', outline:'none', width:'100%', transition:'border-color .12s'}}
       />
       {open && filtered.length > 0 && (
-        <div style={{position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'var(--bg-surface)', border:'1px solid var(--border)', borderRadius:'8px', zIndex:9999, maxHeight:'200px', overflowY:'auto', boxShadow:'var(--shadow)'}}>
+        <div style={{position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'var(--bg-surface)', border:'1px solid var(--border)', borderRadius:'8px', zIndex:9999, maxHeight:'200px', overflowY:'auto', WebkitOverflowScrolling:'touch', touchAction:'pan-y', boxShadow:'var(--shadow)'}}>
           {filtered.map(p => (
             <div key={p.id}
-              onPointerDown={e => { e.preventDefault(); const isimBuyuk = p.isim.toUpperCase(); onChange(p.id, isimBuyuk, p.birim_fiyat); setQuery(isimBuyuk); setOpen(false) }}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { const isimBuyuk = p.isim.toUpperCase(); onChange(p.id, isimBuyuk, p.birim_fiyat); setQuery(isimBuyuk); setOpen(false) }}
               style={{padding:'8px 12px', cursor:'pointer', fontFamily:'Inter, sans-serif', fontStyle:'normal', fontSize:'12.5px', display:'flex', justifyContent:'space-between', alignItems:'center', color: value===p.id ? 'var(--text-primary)' : 'var(--text-secondary)', background: value===p.id ? 'rgba(229,72,77,.08)' : 'transparent'}}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
               onMouseLeave={e => e.currentTarget.style.background = value===p.id ? 'rgba(229,72,77,.08)' : 'transparent'}
@@ -1443,7 +1444,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
     return aramaUy && musteriUy && personelUy && odemeUy && ['bekliyor', 'devam_ediyor'].includes(i.durum)
   })
 
-  // Tamamlanan işler: tamamlandi + teslim_edildi + iptal — son 15
+  // Tamamlanan işler: tamamlandi + teslim_edildi + iptal — son 200
   const tamamlananIsler = isler.filter(i => {
     const q = arama.toLowerCase()
     const aramaUy = !q || `${i.musteriler?.ad} ${i.musteriler?.soyad} ${i.araclar?.plaka} ${i.is_emri_no}`.toLowerCase().includes(q)
@@ -1451,7 +1452,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
     const personelUy = !personelFiltre || i.personel_id === personelFiltre
     const odemeUy = !odemeFiltre || i.odeme_durumu === odemeFiltre
     return aramaUy && musteriUy && personelUy && odemeUy && ['tamamlandi', 'teslim_edildi', 'iptal'].includes(i.durum)
-  }).slice(0, 15)
+  }).slice(0, 200)
 
 
   const bekleyen = isler.filter(i => i.durum === 'bekliyor').length
@@ -1585,7 +1586,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
       {/* GEÇMİŞ İŞ EMİRLERİ */}
       <div className="table-card">
         <div className="table-header">
-          <span className="table-title">📋 Geçmiş İş Emirleri <span style={{fontSize:'0.85rem',color:'var(--text-muted)',fontWeight:400}}>(Son 15)</span></span>
+          <span className="table-title">📋 Geçmiş İş Emirleri <span style={{fontSize:'0.85rem',color:'var(--text-muted)',fontWeight:400}}>(Son 200)</span></span>
         </div>
         {tamamlananIsler.length === 0
           ? <div className="empty-state"><div className="empty-state-icon">📋</div><p>Tamamlanan iş emri yok</p></div>
@@ -1647,4 +1648,5 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
   )
 }
 
+export { IsEmriDetay, ServisFormuModal }
 export default IsEmirleri

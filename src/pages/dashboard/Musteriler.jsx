@@ -3,6 +3,7 @@ import { supabase } from '../../supabaseClient'
 import SearchableSelect from '../../components/dashboard/SearchableSelect'
 import CustomSelect from '../../components/dashboard/CustomSelect'
 import RuhsatTarama from '../../components/dashboard/RuhsatTarama'
+import { IsEmriDetay, ServisFormuModal } from './IsEmirleri'
 
 const KAN_GRUPLARI = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', '0+', '0-']
 const YAKIT_TIPLERI = ['Benzin', 'Dizel', 'LPG', 'Elektrik', 'Hibrit']
@@ -318,6 +319,8 @@ const MusteriDetay = ({ musteri: initialMusteri, onGeri, onIsEmriAc }) => {
   const [editForm, setEditForm] = useState({ ...initialMusteri })
   const [guncelleniyor, setGuncelleniyor] = useState(false)
   const [msg, setMsg] = useState('')
+  const [seciliIsEmri, setSeciliIsEmri] = useState(null)
+  const [yazdirModal, setYazdirModal] = useState(null)
 
   useEffect(() => { fetchDetay() }, [])
 
@@ -461,7 +464,7 @@ const MusteriDetay = ({ musteri: initialMusteri, onGeri, onIsEmriAc }) => {
                     <thead><tr><th>İş No</th><th>Araç</th><th>Teknisyen</th><th>Durum</th><th>Tutar</th><th>Tarih</th></tr></thead>
                     <tbody>
                       {isler.map(is => (
-                        <tr key={is.id} style={{cursor:'pointer'}} onClick={() => onIsEmriAc && onIsEmriAc(is)}>
+                        <tr key={is.id} style={{cursor:'pointer'}} onClick={() => setSeciliIsEmri(is)}>
                           <td style={{fontWeight:700,color:'var(--text-primary)'}}>#{is.is_emri_no}</td>
                           <td>{formatPlaka(is.araclar?.plaka)} <span style={{color:'var(--text-muted)',fontSize:'0.75rem'}}>{is.araclar?.marka}</span></td>
                           <td style={{color:'var(--text-secondary)'}}>{is.personel ? `${is.personel.ad} ${is.personel.soyad}` : '-'}</td>
@@ -476,7 +479,7 @@ const MusteriDetay = ({ musteri: initialMusteri, onGeri, onIsEmriAc }) => {
                 {/* Mobil kartlar */}
                 <div className="mobile-only" style={{padding:'8px'}}>
                   {isler.map(is => (
-                    <div key={is.id} onClick={() => onIsEmriAc && onIsEmriAc(is)}
+                    <div key={is.id} onClick={() => setSeciliIsEmri(is)}
                       style={{background:'var(--bg-elevated)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px',marginBottom:'8px',cursor:'pointer'}}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'6px'}}>
                         <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
@@ -589,6 +592,27 @@ const MusteriDetay = ({ musteri: initialMusteri, onGeri, onIsEmriAc }) => {
           </div>
         </div>
       )}
+      {/* İş Emri Detay Modalı */}
+      {seciliIsEmri && (
+        <IsEmriDetay
+          is={seciliIsEmri}
+          onKapat={() => {
+            setSeciliIsEmri(null)
+            fetchDetay()
+          }}
+          onDurumGuncelle={() => fetchDetay()}
+          onGuncellendi={() => fetchDetay()}
+          onYazdir={(is) => {
+            setSeciliIsEmri(null)
+            setTimeout(() => setYazdirModal(is), 100)
+          }}
+        />
+      )}
+
+      {/* Servis Formu Çıktı Modalı */}
+      {yazdirModal && (
+        <ServisFormuModal is={yazdirModal} onKapat={() => setYazdirModal(null)} />
+      )}
     </div>
   )
 }
@@ -611,22 +635,42 @@ const Musteriler = ({ onIsEmriAc }) => {
     setAraclar(aracRes.data || [])
 
     if (aramaQuery.trim()) {
+      const q = aramaQuery.trim()
+      const temizPlaka = q.replace(/\s+/g, '')
+      const rakamlar = q.replace(/\D/g, '')
+
       // Plaka araması — araclar tablosundan musteri_id bul
       const { data: plakaRes } = await supabase
         .from('araclar')
         .select('musteri_id')
-        .ilike('plaka', `%${aramaQuery}%`)
+        .or(`plaka.ilike.%${q}%,plaka.ilike.%${temizPlaka}%`)
       const plakaMusteri = (plakaRes || []).map(a => a.musteri_id)
 
-      // Müşteri alanlarında ara
-      const { data: musteriRes } = await supabase
-        .from('musteriler').select('*')
-        .or(`ad.ilike.%${aramaQuery}%,soyad.ilike.%${aramaQuery}%,telefon.ilike.%${aramaQuery}%,tc.ilike.%${aramaQuery}%,email.ilike.%${aramaQuery}%`)
+      // Müşteri alanlarında ara — kelimeleri ayırarak (isim soyisim boşluklu aramaları destekler)
+      const kelimeler = q.split(/\s+/).filter(Boolean)
+      let musteriQuery = supabase.from('musteriler').select('*')
+      for (const k of kelimeler) {
+        musteriQuery = musteriQuery.or(`ad.ilike.%${k}%,soyad.ilike.%${k}%,telefon.ilike.%${k}%,tc.ilike.%${k}%,email.ilike.%${k}%`)
+      }
+      const { data: musteriRes } = await musteriQuery
         .order('ad').order('soyad')
         .limit(100)
 
-      // Plaka eşleşenleri de ekle (tekrar olmasın)
       let birlesmis = musteriRes || []
+
+      // Telefon numarası boşluklu yazıldıysa (örn: 0544 833 16 85)
+      if (rakamlar.length >= 4) {
+        const { data: telRes } = await supabase
+          .from('musteriler')
+          .select('*')
+          .ilike('telefon', `%${rakamlar}%`)
+          .limit(100)
+        const mevcutIdler = new Set(birlesmis.map(m => m.id))
+        const ekstraTel = (telRes || []).filter(m => !mevcutIdler.has(m.id))
+        birlesmis = [...birlesmis, ...ekstraTel]
+      }
+
+      // Plaka eşleşenleri de ekle (tekrar olmasın)
       if (plakaMusteri.length > 0) {
         const { data: plakaMusRes } = await supabase
           .from('musteriler').select('*')
@@ -637,11 +681,11 @@ const Musteriler = ({ onIsEmriAc }) => {
       }
       setMusteriler(birlesmis)
     } else {
-      // Arama yoksa son 10 müşteri
+      // Arama yoksa son 50 müşteri
       const { data } = await supabase
         .from('musteriler').select('*')
         .order('created_at', { ascending: false })
-        .limit(10)
+        .limit(50)
       setMusteriler(data || [])
     }
     setLoading(false)
