@@ -1,4 +1,4 @@
-const CACHE_NAME = 'motorcum-v1.0.125'
+const CACHE_NAME = 'motorcum-v1.0.127'
 const APP_SHELL = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
@@ -26,7 +26,8 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
 
-  // Supabase API istekleri önbelleğe alınmaz — her zaman taze veri
+  // API ve Supabase istekleri asla önbelleğe alınmaz
+  if (url.pathname.startsWith('/api/')) return
   if (url.hostname.includes('supabase.co')) return
   if (event.request.method !== 'GET') return
 
@@ -54,6 +55,31 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => caches.match(event.request))
   )
+})
+
+// Web Push (Apple & Google Push Servisinden gelen kilit ekranı uyarısı)
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch (e) {
+    data = { title: 'Motorcum Servis', body: event.data ? event.data.text() : 'Yeni bildirim' }
+  }
+
+  const title = data.title || 'Motorcum Servis'
+  const options = {
+    body: data.body || 'İş emrinde güncelleme var.',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [300, 150, 300],
+    tag: data.tag || 'motorcum-' + Date.now(),
+    renotify: true,
+    data: {
+      url: data.url || '/dashboard'
+    }
+  }
+
+  event.waitUntil(self.registration.showNotification(title, options))
 })
 
 // Bildirime tıklandığında PWA uygulamasını öne getir / aç

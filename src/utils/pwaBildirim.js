@@ -1,5 +1,6 @@
 // PWA & Web Bildirim Yardımcı Modülü
 import { supabase } from '../supabaseClient'
+import { webPushTetikle } from './webPushManager'
 
 export const DURUMLAR_TR = {
   bekliyor: 'Bekliyor',
@@ -115,8 +116,9 @@ export const yerTutucuDoldur = (sablon, veri = {}) => {
   return sonuc
 }
 
-// PC veya mobilde bir iş emri eylemi gerçekleştiğinde diğer cihazlara anlık bildirim fırlatır
+// PC veya mobilde bir iş emri eylemi gerçekleştiğinde hem ekrandaki cihazlara hem de tuş kilitli telefonlara bildirim gönderir
 export const broadcastYoneticiBildirimi = async (olayData) => {
+  // 1. Ekranı açık / bağlı cihazlara anlık WebSocket ile ilet
   try {
     const channel = supabase.channel('motorcum-yonetici-bildirimleri')
     if (channel.state !== 'joined') {
@@ -132,6 +134,37 @@ export const broadcastYoneticiBildirimi = async (olayData) => {
     })
   } catch (err) {
     console.warn('Yönetici bildirim broadcast hatası:', err)
+  }
+
+  // 2. Tuş kilitli / arka plandaki telefonlara resmi Apple/Google Web Push ile kilit ekranı uyarısı gönder
+  try {
+    let baslik = olayData.baslik
+    let icerik = olayData.mesaj
+
+    if (!baslik) {
+      if (olayData.olayTipi === 'is_emri_olusturuldu') {
+        baslik = `🔧 Yeni İş Emri: ${olayData.plaka || ''}`
+        icerik = `#${olayData.isEmriNo || ''} nolu araç servise alındı. Müşteri: ${olayData.musteriAdi || ''}`
+      } else if (olayData.olayTipi === 'is_emri_tamamlandi') {
+        baslik = `✅ Servis Tamamlandı: ${olayData.plaka || ''}`
+        icerik = `#${olayData.isEmriNo || ''} nolu araç teslime hazır. Toplam: ₺${parseFloat(olayData.tutar || 0).toLocaleString('tr-TR')}`
+      } else if (olayData.olayTipi === 'odeme_alindi') {
+        baslik = `💰 Ödeme Alındı: ₺${parseFloat(olayData.tutar || 0).toLocaleString('tr-TR')}`
+        icerik = `${olayData.plaka || ''} plakalı iş emri #${olayData.isEmriNo || ''} için ödeme kaydedildi.`
+      } else {
+        baslik = `🔄 Statü Değişti: ${olayData.plaka || ''}`
+        icerik = `#${olayData.isEmriNo || ''} nolu aracın durumu: ${DURUMLAR_TR[olayData.durum] || olayData.durum || ''}`
+      }
+    }
+
+    await webPushTetikle({
+      baslik,
+      mesaj: icerik,
+      url: '/dashboard',
+      hedefRoller: olayData.roller || ['admin', 'yönetici', 'usta', 'teknisyen']
+    })
+  } catch (err) {
+    console.warn('Web push gönderim hatası:', err)
   }
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import { bildirimGonder, bildirimSesiCal, broadcastAyarlarGuncellendi } from '../../utils/pwaBildirim'
+import { webPushAboneOl, webPushTetikle } from '../../utils/webPushManager'
 
 const OLAYLAR = [
   { key: 'is_emri_olusturuldu', baslik: '🔧 İş Emri Oluşturuldu', aciklama: 'Araç servise alındığında müşteriye gider' },
@@ -323,7 +324,12 @@ const Bildirimler = () => {
       const p = await Notification.requestPermission()
       setIzinDurumu(p)
       if (p === 'granted') {
-        showMsg('✅ Bildirim izni verildi! Telefonunuza anlık bildirimler gelecek.')
+        const subRes = await webPushAboneOl(profile)
+        if (subRes.success) {
+          showMsg('✅ Web Push kilit ekranı bildirimi başarıyla bağlandı! Tuş kilitliyken de bildirim gelecek.')
+        } else {
+          showMsg('✅ Bildirim izni verildi! Telefonunuza anlık bildirimler gelecek.')
+        }
       } else {
         showMsg('Bildirim izni reddedildi.', 'error')
       }
@@ -345,17 +351,26 @@ const Bildirimler = () => {
         return
       }
     }
+
+    // Cihazın push aboneliğini tazele / kaydet
+    webPushAboneOl(profile).catch(() => {})
+
     if (yoneticiTaslak.ses) {
       bildirimSesiCal()
     }
     const baslik = onizlemeUret(yoneticiTaslak.baslik || '🔧 Yeni İş Emri: {arac_plaka}')
     const mesaj = onizlemeUret(yoneticiTaslak.icerik || '#{is_emri_no} nolu araç servise alındı.')
-    const basarili = await bildirimGonder(baslik, mesaj, '/dashboard')
-    if (basarili) {
-      showMsg('✅ Test bildirimi gönderildi! Telefon/cihaz bildirim çubuğunu kontrol edin.')
-    } else {
-      showMsg('Bildirim gönderilemedi. Cihaz ayarlarınızı kontrol edin.', 'error')
-    }
+    
+    // Hem yerel bildirim gönder hem Apple/Google Web Push fırlat
+    await bildirimGonder(baslik, mesaj, '/dashboard')
+    await webPushTetikle({
+      baslik,
+      mesaj,
+      url: '/dashboard',
+      hedefRoller: yoneticiTaslak.roller
+    })
+
+    showMsg('✅ Test bildirimi gönderildi! Telefon/cihaz kilit ekranı ve bildirim çubuğunu kontrol edin.')
   }
 
   const yoneticiKaydet = async () => {
