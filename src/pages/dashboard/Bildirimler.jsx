@@ -157,7 +157,19 @@ const Bildirimler = () => {
   const [msg, setMsg] = useState({ text: '', type: '' })
 
   // Yönetici Bildirimi Sekmesi State'leri
-  const [aktifYoneticiOlay, setAktifYoneticiOlay] = useState('is_emri_olusturuldu')
+  const [aktifYoneticiOlay, setAktifYoneticiOlay] = useState(() => {
+    try {
+      return localStorage.getItem('motorcum_aktif_yonetici_olay') || 'is_emri_olusturuldu'
+    } catch {
+      return 'is_emri_olusturuldu'
+    }
+  })
+  const aktifYoneticiOlayAyarla = (olayKey) => {
+    setAktifYoneticiOlay(olayKey)
+    try {
+      localStorage.setItem('motorcum_aktif_yonetici_olay', olayKey)
+    } catch {}
+  }
   const [yoneticiTaslak, setYoneticiTaslak] = useState({
     baslik: '', icerik: '', roller: ['admin', 'yönetici'], ses: true, aktif: true
   })
@@ -388,6 +400,8 @@ const Bildirimler = () => {
       updated_at: new Date().toISOString(),
     }
 
+    let dbBasarili = false
+    let dbHata = ''
     try {
       const { data, error } = mevcut
         ? await supabase.from('bildirim_sablonlari').update(payload).eq('id', mevcut.id).select().single()
@@ -395,12 +409,19 @@ const Bildirimler = () => {
 
       if (!error && data) {
         setSablonlar(prev => ({ ...prev, [`yonetici:${aktifYoneticiOlay}`]: data }))
+        dbBasarili = true
+      } else if (error) {
+        dbHata = error.message
       }
     } catch (e) {
-      // Veritabanı hatası olsa bile localStorage ve broadcast ile ayarlar kaydedildi
+      dbHata = e.message
     }
 
-    showMsg('✅ Yönetici bildirim ayarları kaydedildi ve tüm cihazlarınıza uygulandı.')
+    if (dbBasarili) {
+      showMsg('✅ Bildirim ayarları veritabanı tablosuna başarıyla kaydedildi!')
+    } else {
+      showMsg('⚠️ Ayarlar tarayıcıya alındı ancak Supabase RLS kısıtı tablolara yazmayı reddetti (' + dbHata + '). Kalıcı kayıt için lütfen SQL Editor\'da RLS iznini çalıştırın.', 'error')
+    }
     setYoneticiKaydediliyor(false)
   }
 
@@ -605,7 +626,7 @@ const Bildirimler = () => {
                 return (
                   <div
                     key={o.key}
-                    onClick={() => setAktifYoneticiOlay(o.key)}
+                    onClick={() => aktifYoneticiOlayAyarla(o.key)}
                     style={{
                       padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
                       background: secili ? 'var(--bg-elevated, rgba(255,255,255,.04))' : 'transparent',
