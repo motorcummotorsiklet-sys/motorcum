@@ -33,47 +33,6 @@ const VARSAYILAN_AYARLAR = {
   },
 }
 
-// Uygulama ekrandayken (telefon açıkken) üstten kayan canlı bildirim kartı
-const canliBannerGoster = (baslik, mesaj) => {
-  if (typeof document === 'undefined') return
-  const id = 'motorcum-toast-banner'
-  const existing = document.getElementById(id)
-  if (existing) existing.remove()
-
-  const banner = document.createElement('div')
-  banner.id = id
-  banner.style.cssText = `
-    position: fixed;
-    top: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 999999;
-    max-width: 92vw;
-    width: 380px;
-    background: #18181b;
-    color: #fff;
-    border: 1px solid rgba(229,72,77,.5);
-    box-shadow: 0 12px 36px rgba(0,0,0,.65);
-    border-radius: 12px;
-    padding: 12px 14px;
-    cursor: pointer;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  `
-  banner.innerHTML = `
-    <div style="display:flex;align-items:flex-start;gap:10px">
-      <div style="font-size:22px;line-height:1">🏍️</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px">${baslik}</div>
-        <div style="font-size:12px;color:#d4d4d8;line-height:1.4">${mesaj}</div>
-      </div>
-      <button style="background:none;border:none;color:#a1a1aa;font-size:14px;cursor:pointer;padding:0;line-height:1">✕</button>
-    </div>
-  `
-  banner.onclick = () => banner.remove()
-  document.body.appendChild(banner)
-  setTimeout(() => { if (banner && banner.parentNode) banner.remove() }, 6500)
-}
-
 export const useYoneticiBildirimleri = (profile) => {
   const ayarlarRef = useRef(VARSAYILAN_AYARLAR)
   const sonBildirilenlerRef = useRef(new Set())
@@ -163,10 +122,7 @@ export const useYoneticiBildirimleri = (profile) => {
         bildirimSesiCal()
       }
 
-      // 2. Canlı in-app bildirim kartını ekrana düşür
-      canliBannerGoster(baslik, mesaj)
-
-      // 3. Telefon / PWA sistem bildirimi gönder (Kilit ekranı ve bildirim çubuğu)
+      // 2. Telefon / PWA sistem bildirimi gönder (Kilit ekranı ve bildirim çubuğu)
       await bildirimGonder(baslik, mesaj, '/dashboard')
     }
 
