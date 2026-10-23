@@ -18,10 +18,28 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { baslik, mesaj, url, hedefRoller } = req.body || {}
+    const { baslik, mesaj, url, hedefRoller, olayTipi } = req.body || {}
 
     if (!baslik || !mesaj) {
       return res.status(400).json({ error: 'Başlık ve mesaj zorunludur.' })
+    }
+
+    // Olay tipi belirtilmişse Supabase'den aktiflik kontrolü yap
+    if (olayTipi) {
+      const { data: sablon } = await supabase
+        .from('bildirim_sablonlari')
+        .select('*')
+        .eq('tip', 'yonetici')
+        .eq('olay', olayTipi)
+        .maybeSingle()
+
+      if (sablon && sablon.aktif === false) {
+        return res.status(200).json({
+          success: true,
+          sentCount: 0,
+          message: `Olay tipi (${olayTipi}) ayarlardan pasif yapıldığı için bildirim gönderilmedi.`
+        })
+      }
     }
 
     // 1. Veritabanından kayıtlı tüm mobil / masaüstü abonelikleri çek

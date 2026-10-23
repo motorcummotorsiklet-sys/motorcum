@@ -105,6 +105,7 @@ const EMAIL_YONTEMLERI = {
 
 const YER_TUTUCULAR = [
   ['{musteri_adi}', 'Müşterinin adı soyadı'],
+  ['{personel_adi}', 'İş emrine atanan personelin / ustanın adı soyadı'],
   ['{arac_plaka}', 'Aracın plakası'],
   ['{arac_marka_model}', 'Araç marka ve modeli'],
   ['{durum}', 'İş emrinin güncel durumu (Bekliyor, Devam Ediyor vb.)'],
@@ -116,6 +117,8 @@ const YER_TUTUCULAR = [
 
 const ORNEK_DEGERLER = {
   '{musteri_adi}': 'AHMET YILMAZ',
+  '{personel_adi}': 'MEHMET USTA',
+  '{personel_ad_soyad}': 'MEHMET USTA',
   '{arac_plaka}': '34 AT 321',
   '{arac_marka_model}': 'Honda PCX 150',
   '{durum}': 'Devam Ediyor',

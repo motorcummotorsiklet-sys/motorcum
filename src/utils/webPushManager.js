@@ -131,7 +131,7 @@ export const webPushAboneOl = async (profile) => {
 }
 
 // Kilitli / arka plandaki telefonlara Web Push fırlatır
-export const webPushTetikle = async ({ baslik, mesaj, url = '/dashboard', hedefRoller = [] }) => {
+export const webPushTetikle = async ({ baslik, mesaj, url = '/dashboard', hedefRoller = [], olayTipi = null }) => {
   try {
     const res = await fetch('/api/push-send', {
       method: 'POST',
@@ -140,7 +140,8 @@ export const webPushTetikle = async ({ baslik, mesaj, url = '/dashboard', hedefR
         baslik,
         mesaj,
         url,
-        hedefRoller
+        hedefRoller,
+        olayTipi
       })
     })
     return await res.json()

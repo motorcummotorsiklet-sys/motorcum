@@ -237,6 +237,7 @@ const IsEmriForm = ({ onKaydet, onIptal }) => {
     if (isEmri) {
       const seciliMusteri = musteriler.find(m => m.id === form.musteri_id)
       const seciliArac = araclar.find(a => a.id === form.arac_id)
+      const seciliPersonel = personel.find(p => p.id === form.personel_id)
       broadcastYoneticiBildirimi({
         olayTipi: 'is_emri_olusturuldu',
         isEmriId: isEmri.id,
@@ -245,6 +246,7 @@ const IsEmriForm = ({ onKaydet, onIptal }) => {
         musteriAdi: seciliMusteri ? `${seciliMusteri.ad || ''} ${seciliMusteri.soyad || ''}`.trim() : 'Müşteri',
         plaka: seciliArac?.plaka || '',
         markaModel: seciliArac ? `${seciliArac.marka || ''} ${seciliArac.model || ''}`.trim() : '',
+        personelAdi: seciliPersonel ? `${seciliPersonel.ad || ''} ${seciliPersonel.soyad || ''}`.trim() : '',
         tutar: isEmri.toplam_tutar || 0,
       })
     }
@@ -1021,6 +1023,7 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
     setIsEmri(prev => ({ ...prev, durum: yeniDurum }))
     if (onDurumGuncelle) onDurumGuncelle(isEmri.id, yeniDurum, null)
 
+    const personelAdi = isEmri.personel ? `${isEmri.personel.ad || ''} ${isEmri.personel.soyad || ''}`.trim() : ''
     broadcastYoneticiBildirimi({
       olayTipi: yeniDurum === 'tamamlandi' ? 'is_emri_tamamlandi' : 'is_emri_durum_degisti',
       isEmriId: isEmri.id,
@@ -1029,6 +1032,7 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
       musteriAdi: `${isEmri.musteriler?.ad || ''} ${isEmri.musteriler?.soyad || ''}`.trim(),
       plaka: isEmri.araclar?.plaka || '',
       markaModel: `${isEmri.araclar?.marka || ''} ${isEmri.araclar?.model || ''}`.trim(),
+      personelAdi,
       tutar: isEmri.toplam_tutar || 0,
     })
   }
@@ -1043,6 +1047,7 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
     if (onDurumGuncelle) onDurumGuncelle(isEmri.id, null, yeniOdeme)
 
     if (['odendi', 'kismi'].includes(yeniOdeme)) {
+      const personelAdi = isEmri.personel ? `${isEmri.personel.ad || ''} ${isEmri.personel.soyad || ''}`.trim() : ''
       broadcastYoneticiBildirimi({
         olayTipi: 'odeme_alindi',
         isEmriId: isEmri.id,
@@ -1051,6 +1056,7 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
         musteriAdi: `${isEmri.musteriler?.ad || ''} ${isEmri.musteriler?.soyad || ''}`.trim(),
         plaka: isEmri.araclar?.plaka || '',
         markaModel: `${isEmri.araclar?.marka || ''} ${isEmri.araclar?.model || ''}`.trim(),
+        personelAdi,
         tutar: updates.odenen_tutar ?? isEmri.toplam_tutar ?? 0,
       })
     }
@@ -1470,6 +1476,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
 
     const hedef = isler.find(i => i.id === id)
     if (hedef) {
+      const personelAdi = hedef.personel ? `${hedef.personel.ad || ''} ${hedef.personel.soyad || ''}`.trim() : ''
       if (yeniDurum) {
         broadcastYoneticiBildirimi({
           olayTipi: yeniDurum === 'tamamlandi' ? 'is_emri_tamamlandi' : 'is_emri_durum_degisti',
@@ -1479,6 +1486,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
           musteriAdi: `${hedef.musteriler?.ad || ''} ${hedef.musteriler?.soyad || ''}`.trim(),
           plaka: hedef.araclar?.plaka || '',
           markaModel: `${hedef.araclar?.marka || ''} ${hedef.araclar?.model || ''}`.trim(),
+          personelAdi,
           tutar: hedef.toplam_tutar || 0,
         })
       }
@@ -1491,6 +1499,7 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
           musteriAdi: `${hedef.musteriler?.ad || ''} ${hedef.musteriler?.soyad || ''}`.trim(),
           plaka: hedef.araclar?.plaka || '',
           markaModel: `${hedef.araclar?.marka || ''} ${hedef.araclar?.model || ''}`.trim(),
+          personelAdi,
           tutar: hedef.toplam_tutar || 0,
         })
       }

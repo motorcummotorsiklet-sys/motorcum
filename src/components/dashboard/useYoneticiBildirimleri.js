@@ -171,16 +171,20 @@ export const useYoneticiBildirimleri = (profile) => {
         let musteriAdi = 'Müşteri'
         let aracPlaka = 'Araç'
         let aracMarkaModel = ''
+        let personelAdi = ''
         try {
           const { data: d } = await supabase
             .from('is_emirleri')
-            .select('musteriler(ad,soyad), araclar(plaka,marka,model)')
+            .select('musteriler(ad,soyad), araclar(plaka,marka,model), personel(ad,soyad)')
             .eq('id', isId)
             .maybeSingle()
           if (d?.musteriler) musteriAdi = `${d.musteriler.ad || ''} ${d.musteriler.soyad || ''}`.trim()
           if (d?.araclar) {
             aracPlaka = d.araclar.plaka || aracPlaka
             aracMarkaModel = `${d.araclar.marka || ''} ${d.araclar.model || ''}`.trim()
+          }
+          if (d?.personel) {
+            personelAdi = `${d.personel.ad || ''} ${d.personel.soyad || ''}`.trim()
           }
         } catch {}
 
@@ -192,6 +196,7 @@ export const useYoneticiBildirimleri = (profile) => {
           musteriAdi,
           plaka: aracPlaka,
           markaModel: aracMarkaModel,
+          personelAdi,
         }
 
         if (payload.eventType === 'INSERT') {
@@ -231,7 +236,7 @@ export const useYoneticiBildirimleri = (profile) => {
       try {
         const { data: sonIsler } = await supabase
           .from('is_emirleri')
-          .select('id, is_emri_no, durum, odeme_durumu, toplam_tutar, odenen_tutar, updated_at, musteriler(ad, soyad), araclar(plaka, marka, model)')
+          .select('id, is_emri_no, durum, odeme_durumu, toplam_tutar, odenen_tutar, updated_at, musteriler(ad, soyad), araclar(plaka, marka, model), personel(ad, soyad)')
           .order('created_at', { ascending: false })
           .limit(10)
 
@@ -251,6 +256,7 @@ export const useYoneticiBildirimleri = (profile) => {
           const musteriAdi = is.musteriler ? `${is.musteriler.ad || ''} ${is.musteriler.soyad || ''}`.trim() : 'Müşteri'
           const plaka = is.araclar?.plaka || 'Plaka'
           const markaModel = is.araclar ? `${is.araclar.marka || ''} ${is.araclar.model || ''}`.trim() : ''
+          const personelAdi = is.personel ? `${is.personel.ad || ''} ${is.personel.soyad || ''}`.trim() : ''
 
           const veri = {
             isEmriId: is.id,
@@ -260,6 +266,7 @@ export const useYoneticiBildirimleri = (profile) => {
             musteriAdi,
             plaka,
             markaModel,
+            personelAdi,
           }
 
           // A) Yeni iş emri kontrolü (telefon kapalıyken veya uyurken oluşturulduysa)
