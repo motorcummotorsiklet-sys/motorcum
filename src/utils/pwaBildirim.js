@@ -141,10 +141,22 @@ export const yerTutucuDoldur = (sablon, veri = {}) => {
   return sonuc
 }
 
+// Mükerrer bildirimleri engellemek için hafıza tablosu (3 saniye penceresi)
+const sonBroadcastZamanlari = new Map()
+
 // PC veya mobilde bir iş emri eylemi gerçekleştiğinde hem ekrandaki cihazlara hem de tuş kilitli telefonlara bildirim gönderir
 export const broadcastYoneticiBildirimi = async (olayData) => {
   const olayTipi = olayData?.olayTipi
   if (!olayTipi) return
+
+  // Mükerrer tetikleme koruması: aynı iş emri ve olay 4 saniye içinde tekrar gelirse yut
+  const dedupKey = `${olayData.isEmriId || 'yeni'}:${olayTipi}:${olayData.durum || ''}`
+  const simdi = Date.now()
+  if (sonBroadcastZamanlari.has(dedupKey) && (simdi - sonBroadcastZamanlari.get(dedupKey) < 4000)) {
+    console.log(`Mükerrer bildirim engellendi: ${dedupKey}`)
+    return
+  }
+  sonBroadcastZamanlari.set(dedupKey, simdi)
 
   // 1. Ayarları Supabase veya LocalStorage'dan al
   let ayar = null

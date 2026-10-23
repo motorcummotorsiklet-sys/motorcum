@@ -1021,20 +1021,9 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
   const handleDurumDegistir = async (yeniDurum) => {
     await supabase.from('is_emirleri').update({ durum: yeniDurum }).eq('id', isEmri.id)
     setIsEmri(prev => ({ ...prev, durum: yeniDurum }))
-    if (onDurumGuncelle) onDurumGuncelle(isEmri.id, yeniDurum, null)
-
-    const personelAdi = isEmri.personel ? `${isEmri.personel.ad || ''} ${isEmri.personel.soyad || ''}`.trim() : ''
-    broadcastYoneticiBildirimi({
-      olayTipi: yeniDurum === 'tamamlandi' ? 'is_emri_tamamlandi' : 'is_emri_durum_degisti',
-      isEmriId: isEmri.id,
-      isEmriNo: isEmri.is_emri_no,
-      durum: yeniDurum,
-      musteriAdi: `${isEmri.musteriler?.ad || ''} ${isEmri.musteriler?.soyad || ''}`.trim(),
-      plaka: isEmri.araclar?.plaka || '',
-      markaModel: `${isEmri.araclar?.marka || ''} ${isEmri.araclar?.model || ''}`.trim(),
-      personelAdi,
-      tutar: isEmri.toplam_tutar || 0,
-    })
+    if (onDurumGuncelle) {
+      onDurumGuncelle(isEmri.id, yeniDurum, null)
+    }
   }
 
   const handleOdemeDegistir = async (yeniOdeme) => {
@@ -1044,21 +1033,8 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
     await supabase.from('is_emirleri').update(updates).eq('id', isEmri.id)
     setIsEmri(prev => ({ ...prev, odeme_durumu: yeniOdeme, odenen_tutar: updates.odenen_tutar ?? prev.odenen_tutar }))
     setForm(prev => ({ ...prev, odeme_durumu: yeniOdeme }))
-    if (onDurumGuncelle) onDurumGuncelle(isEmri.id, null, yeniOdeme)
-
-    if (['odendi', 'kismi'].includes(yeniOdeme)) {
-      const personelAdi = isEmri.personel ? `${isEmri.personel.ad || ''} ${isEmri.personel.soyad || ''}`.trim() : ''
-      broadcastYoneticiBildirimi({
-        olayTipi: 'odeme_alindi',
-        isEmriId: isEmri.id,
-        isEmriNo: isEmri.is_emri_no,
-        durum: isEmri.durum,
-        musteriAdi: `${isEmri.musteriler?.ad || ''} ${isEmri.musteriler?.soyad || ''}`.trim(),
-        plaka: isEmri.araclar?.plaka || '',
-        markaModel: `${isEmri.araclar?.marka || ''} ${isEmri.araclar?.model || ''}`.trim(),
-        personelAdi,
-        tutar: updates.odenen_tutar ?? isEmri.toplam_tutar ?? 0,
-      })
+    if (onDurumGuncelle) {
+      onDurumGuncelle(isEmri.id, null, yeniOdeme)
     }
   }
 

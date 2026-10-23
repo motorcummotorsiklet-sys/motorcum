@@ -840,7 +840,7 @@ const Bildirimler = () => {
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff', marginBottom: 3 }}>
                       {onizlemeUret(yoneticiTaslak.baslik) || <span style={{ color: '#71717a' }}>Başlık girilmedi</span>}
                     </div>
-                    <div style={{ fontSize: 12, color: '#d4d4d8', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                    <div style={{ fontSize: 12, color: '#d4d4d8', lineHeight: 1.4, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                       {onizlemeUret(yoneticiTaslak.icerik) || <span style={{ color: '#71717a' }}>Mesaj metni girilmedi</span>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 10.5, color: '#a1a1aa' }}>
