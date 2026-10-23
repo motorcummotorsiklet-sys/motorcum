@@ -1,4 +1,28 @@
 // PWA & Web Bildirim Yardımcı Modülü
+import { supabase } from '../supabaseClient'
+
+export const DURUMLAR_TR = {
+  bekliyor: 'Bekliyor',
+  devam_ediyor: 'Devam Ediyor',
+  tamamlandi: 'Tamamlandı',
+  teslim_edildi: 'Teslim Edildi',
+  iptal: 'İptal',
+}
+
+// Türkçe karakterleri normalize eden fonksiyon (rol karşılaştırması için)
+export const normalizeRol = (r) => {
+  if (!r) return ''
+  return r
+    .toString()
+    .toLowerCase()
+    .replace(/ö/g, 'o')
+    .replace(/ü/g, 'u')
+    .replace(/ı/g, 'i')
+    .replace(/ş/g, 's')
+    .replace(/ç/g, 'c')
+    .replace(/ğ/g, 'g')
+    .trim()
+}
 
 // Sesli uyarı: Web Audio API ile harici dosya indirmeden temiz 2 tonlu melodi çalar
 export const bildirimSesiCal = () => {
@@ -69,11 +93,12 @@ export const bildirimGonder = async (baslik, mesaj, url = '/dashboard') => {
 export const yerTutucuDoldur = (sablon, veri = {}) => {
   if (!sablon) return ''
   const harita = {
-    '{musteri_adi}': veri.musteri_adi || 'Müşteri',
-    '{arac_plaka}': veri.arac_plaka || 'Plaka',
-    '{arac_marka_model}': veri.arac_marka_model || 'Araç',
+    '{musteri_adi}': veri.musteri_adi || veri.musteriAdi || 'Müşteri',
+    '{arac_plaka}': veri.arac_plaka || veri.plaka || 'Plaka',
+    '{arac_marka_model}': veri.arac_marka_model || veri.markaModel || 'Araç',
+    '{durum}': DURUMLAR_TR[veri.durum] || veri.durum || 'Güncellendi',
     '{tutar}': veri.tutar ? `₺${parseFloat(veri.tutar).toLocaleString('tr-TR')}` : '₺0',
-    '{is_emri_no}': veri.is_emri_no ? `#${veri.is_emri_no}` : '',
+    '{is_emri_no}': veri.is_emri_no || veri.isEmriNo ? `#${veri.is_emri_no || veri.isEmriNo}` : '',
     '{dukkan_adi}': veri.dukkan_adi || 'MOTORCUM Servis',
     '{dukkan_telefon}': veri.dukkan_telefon || '',
   }
@@ -83,4 +108,38 @@ export const yerTutucuDoldur = (sablon, veri = {}) => {
     sonuc = sonuc.replaceAll(key, val)
   }
   return sonuc
+}
+
+// PC veya mobilde bir iş emri eylemi gerçekleştiğinde diğer cihazlara anlık bildirim fırlatır
+export const broadcastYoneticiBildirimi = async (olayData) => {
+  try {
+    const channel = supabase.channel('motorcum-yonetici-bildirimleri')
+    await channel.send({
+      type: 'broadcast',
+      event: 'is_emri_olay',
+      payload: {
+        ...olayData,
+        timestamp: Date.now()
+      }
+    })
+  } catch (err) {
+    console.warn('Yönetici bildirim broadcast hatası:', err)
+  }
+}
+
+// Bildirim ayarları kaydedildiğinde tüm cihazların ayarını senkronize eder
+export const broadcastAyarlarGuncellendi = async (yeniAyarlar) => {
+  try {
+    const channel = supabase.channel('motorcum-yonetici-bildirimleri')
+    await channel.send({
+      type: 'broadcast',
+      event: 'ayarlar_guncellendi',
+      payload: {
+        ayarlar: yeniAyarlar,
+        timestamp: Date.now()
+      }
+    })
+  } catch (err) {
+    console.warn('Ayar senkronizasyon broadcast hatası:', err)
+  }
 }

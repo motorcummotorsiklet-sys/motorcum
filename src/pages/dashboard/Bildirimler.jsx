@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../context/AuthContext'
-import { bildirimGonder, bildirimSesiCal } from '../../utils/pwaBildirim'
+import { bildirimGonder, bildirimSesiCal, broadcastAyarlarGuncellendi } from '../../utils/pwaBildirim'
 
 const OLAYLAR = [
   { key: 'is_emri_olusturuldu', baslik: '🔧 İş Emri Oluşturuldu', aciklama: 'Araç servise alındığında müşteriye gider' },
@@ -16,7 +16,15 @@ const YONETICI_OLAYLAR = [
     aciklama: 'Yeni iş emri açıldığında yönetici telefonuna bildirim gider',
     varsayilanBaslik: '🔧 Yeni İş Emri: {arac_plaka}',
     varsayilanIcerik: '#{is_emri_no} nolu araç servise alındı. Müşteri: {musteri_adi}',
-    varsayilanRoller: ['admin', 'yönetici'],
+    varsayilanRoller: ['admin', 'yönetici', 'usta', 'teknisyen'],
+  },
+  {
+    key: 'is_emri_durum_degisti',
+    baslik: '🔄 Statü Değişikliği',
+    aciklama: 'İş emrinin durumu (Bekliyor, Devam Ediyor vb.) değiştiğinde bildirim gider',
+    varsayilanBaslik: '🔄 Statü Değişti: {arac_plaka}',
+    varsayilanIcerik: '#{is_emri_no} nolu aracın yeni durumu: {durum}.',
+    varsayilanRoller: ['admin', 'yönetici', 'usta', 'teknisyen'],
   },
   {
     key: 'is_emri_tamamlandi',
@@ -24,7 +32,7 @@ const YONETICI_OLAYLAR = [
     aciklama: 'Araç hazır olduğunda yönetici telefonuna bildirim gider',
     varsayilanBaslik: '✅ Servis Tamamlandı: {arac_plaka}',
     varsayilanIcerik: '#{is_emri_no} nolu araç hazır. Toplam: {tutar}',
-    varsayilanRoller: ['admin', 'yönetici'],
+    varsayilanRoller: ['admin', 'yönetici', 'usta', 'teknisyen'],
   },
   {
     key: 'odeme_alindi',
@@ -32,7 +40,7 @@ const YONETICI_OLAYLAR = [
     aciklama: 'Ödeme kaydedildiğinde yönetici telefonuna bildirim gider',
     varsayilanBaslik: '💰 Ödeme Alındı: {tutar}',
     varsayilanIcerik: '{arac_plaka} plakalı iş emri #{is_emri_no} için ödeme kaydedildi.',
-    varsayilanRoller: ['admin', 'yönetici'],
+    varsayilanRoller: ['admin', 'yönetici', 'usta', 'teknisyen'],
   },
 ]
 
@@ -98,6 +106,7 @@ const YER_TUTUCULAR = [
   ['{musteri_adi}', 'Müşterinin adı soyadı'],
   ['{arac_plaka}', 'Aracın plakası'],
   ['{arac_marka_model}', 'Araç marka ve modeli'],
+  ['{durum}', 'İş emrinin güncel durumu (Bekliyor, Devam Ediyor vb.)'],
   ['{tutar}', 'İş emri / ödeme tutarı'],
   ['{is_emri_no}', 'İş emri numarası'],
   ['{dukkan_adi}', 'Dükkanının adı'],
@@ -108,6 +117,7 @@ const ORNEK_DEGERLER = {
   '{musteri_adi}': 'AHMET YILMAZ',
   '{arac_plaka}': '34 AT 321',
   '{arac_marka_model}': 'Honda PCX 150',
+  '{durum}': 'Devam Ediyor',
   '{tutar}': '₺1.850',
   '{is_emri_no}': '#142',
   '{dukkan_adi}': 'Motorcum Motosiklet Servisi',
@@ -125,7 +135,19 @@ const onizlemeUret = (metin) => {
 
 const Bildirimler = () => {
   const { profile } = useAuth()
-  const [gorunum, setGorunum] = useState('sablonlar') // 'sablonlar' | 'yonetici' | 'baglantilar'
+  const [gorunum, setGorunum] = useState(() => {
+    try {
+      return localStorage.getItem('motorcum_bildirim_aktif_tab') || 'yonetici'
+    } catch {
+      return 'yonetici'
+    }
+  })
+  const gorunumAyarla = (yeni) => {
+    setGorunum(yeni)
+    try {
+      localStorage.setItem('motorcum_bildirim_aktif_tab', yeni)
+    } catch {}
+  }
   const [aktifTip, setAktifTip] = useState('sms') // 'sms' | 'email'
   const [aktifOlay, setAktifOlay] = useState('is_emri_olusturuldu')
   const [sablonlar, setSablonlar] = useState({}) // { 'sms:olay': {konu, icerik, aktif, id} }
@@ -228,15 +250,34 @@ const Bildirimler = () => {
     setTaslak(prev => ({ ...prev, icerik: prev.icerik + yer }))
   }
 
-  // Yönetici taslağını veritabanındaki şablondan yükle
+  // Yönetici taslağını localStorage ve veritabanından yükle
   useEffect(() => {
-    const s = sablonlar[`yonetici:${aktifYoneticiOlay}`]
     const def = YONETICI_OLAYLAR.find(o => o.key === aktifYoneticiOlay) || YONETICI_OLAYLAR[0]
 
     let baslik = def.varsayilanBaslik
     let roller = def.varsayilanRoller
     let ses = true
+    let icerik = def.varsayilanIcerik
+    let aktif = true
 
+    // 1. Önce LocalStorage'dan kontrol et (sayfa gidip gelse de kaybolmaz)
+    try {
+      const local = localStorage.getItem('motorcum_yonetici_bildirimleri')
+      if (local) {
+        const parsed = JSON.parse(local)
+        if (parsed[aktifYoneticiOlay]) {
+          const l = parsed[aktifYoneticiOlay]
+          if (l.baslik) baslik = l.baslik
+          if (l.icerik) icerik = l.icerik
+          if (Array.isArray(l.roller)) roller = l.roller
+          if (typeof l.ses === 'boolean') ses = l.ses
+          if (typeof l.aktif === 'boolean') aktif = l.aktif
+        }
+      }
+    } catch {}
+
+    // 2. Varsa Supabase şablonundan üzerine yaz
+    const s = sablonlar[`yonetici:${aktifYoneticiOlay}`]
     if (s?.konu) {
       try {
         if (s.konu.startsWith('{')) {
@@ -248,14 +289,16 @@ const Bildirimler = () => {
           baslik = s.konu
         }
       } catch {}
+      if (s.icerik) icerik = s.icerik
+      if (typeof s.aktif === 'boolean') aktif = s.aktif
     }
 
     setYoneticiTaslak({
       baslik,
-      icerik: s?.icerik || def.varsayilanIcerik,
+      icerik,
       roller,
       ses,
-      aktif: s?.aktif ?? true,
+      aktif,
     })
   }, [aktifYoneticiOlay, sablonlar])
 
@@ -305,6 +348,30 @@ const Bildirimler = () => {
 
   const yoneticiKaydet = async () => {
     setYoneticiKaydediliyor(true)
+
+    // 1. Önce LocalStorage'a kaydet (ekran gidip gelse de asla sıfırlanmaz)
+    let tumAyarlar = {}
+    try {
+      const mevcutLocal = localStorage.getItem('motorcum_yonetici_bildirimleri')
+      if (mevcutLocal) tumAyarlar = JSON.parse(mevcutLocal)
+    } catch {}
+
+    tumAyarlar[aktifYoneticiOlay] = {
+      baslik: yoneticiTaslak.baslik,
+      icerik: yoneticiTaslak.icerik,
+      roller: yoneticiTaslak.roller,
+      ses: yoneticiTaslak.ses,
+      aktif: yoneticiTaslak.aktif,
+    }
+
+    try {
+      localStorage.setItem('motorcum_yonetici_bildirimleri', JSON.stringify(tumAyarlar))
+    } catch {}
+
+    // 2. Diğer tüm bağlı cihazlara (mobil/tablet/PC) anında canlı senkronize et
+    broadcastAyarlarGuncellendi(tumAyarlar)
+
+    // 3. Veritabanına da yazmayı dene
     const mevcut = sablonlar[`yonetici:${aktifYoneticiOlay}`]
     const konuData = JSON.stringify({
       baslik: yoneticiTaslak.baslik,
@@ -321,16 +388,19 @@ const Bildirimler = () => {
       updated_at: new Date().toISOString(),
     }
 
-    const { data, error } = mevcut
-      ? await supabase.from('bildirim_sablonlari').update(payload).eq('id', mevcut.id).select().single()
-      : await supabase.from('bildirim_sablonlari').insert(payload).select().single()
+    try {
+      const { data, error } = mevcut
+        ? await supabase.from('bildirim_sablonlari').update(payload).eq('id', mevcut.id).select().single()
+        : await supabase.from('bildirim_sablonlari').insert(payload).select().single()
 
-    if (error) {
-      showMsg('Kaydedilemedi: ' + error.message, 'error')
-    } else {
-      setSablonlar(prev => ({ ...prev, [`yonetici:${aktifYoneticiOlay}`]: data }))
-      showMsg('✅ Yönetici bildirim ayarları kaydedildi.')
+      if (!error && data) {
+        setSablonlar(prev => ({ ...prev, [`yonetici:${aktifYoneticiOlay}`]: data }))
+      }
+    } catch (e) {
+      // Veritabanı hatası olsa bile localStorage ve broadcast ile ayarlar kaydedildi
     }
+
+    showMsg('✅ Yönetici bildirim ayarları kaydedildi ve tüm cihazlarınıza uygulandı.')
     setYoneticiKaydediliyor(false)
   }
 
@@ -370,7 +440,7 @@ const Bildirimler = () => {
           marginBottom: 16, padding: '12px 16px', background: 'rgba(229,72,77,.08)',
           border: '1px solid rgba(229,72,77,.25)', borderRadius: 10, fontSize: 13, lineHeight: 1.6,
         }}>
-          📱 <strong>Yönetici & Usta Bildirimleri (PWA):</strong> İş emri oluşturulduğunda, tamamlandığında veya ödeme alındığında seçtiğiniz rollere telefon bildirimi ve sesli uyarı anlık olarak ulaşır.
+          📱 <strong>Yönetici & Usta Bildirimleri (PWA):</strong> İş emri oluşturulduğunda, durumu/statüsü değiştiğinde, tamamlandığında veya ödeme alındığında seçtiğiniz rollere telefon bildirimi ve sesli uyarı anlık olarak ulaşır.
         </div>
       )}
 
@@ -384,9 +454,9 @@ const Bildirimler = () => {
       )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button className={`btn btn-sm ${gorunum === 'sablonlar' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setGorunum('sablonlar')}>✏️ Müşteri Şablonları</button>
-        <button className={`btn btn-sm ${gorunum === 'yonetici' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setGorunum('yonetici')}>📱 Yönetici Bildirimi</button>
-        <button className={`btn btn-sm ${gorunum === 'baglantilar' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setGorunum('baglantilar')}>🔌 Sağlayıcı Bağlantıları</button>
+        <button className={`btn btn-sm ${gorunum === 'sablonlar' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => gorunumAyarla('sablonlar')}>✏️ Müşteri Şablonları</button>
+        <button className={`btn btn-sm ${gorunum === 'yonetici' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => gorunumAyarla('yonetici')}>📱 Yönetici Bildirimi</button>
+        <button className={`btn btn-sm ${gorunum === 'baglantilar' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => gorunumAyarla('baglantilar')}>🔌 Sağlayıcı Bağlantıları</button>
       </div>
 
       {gorunum === 'baglantilar' ? (

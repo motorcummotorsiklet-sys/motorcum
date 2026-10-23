@@ -3,6 +3,7 @@ import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import { IconTool, IconClock, IconLira, IconClipboard, IconTrendUp, IconAlert, IconPlus, IconSearch, IconFilter } from '../../components/Icons'
 import CustomSelect from '../../components/dashboard/CustomSelect'
+import { broadcastYoneticiBildirimi } from '../../utils/pwaBildirim'
 
 const DURUMLAR = ['bekliyor', 'devam_ediyor', 'tamamlandi', 'teslim_edildi', 'iptal']
 const DURUMLAR_TR = { bekliyor: 'Bekliyor', devam_ediyor: 'Devam Ediyor', tamamlandi: 'Tamamlandı', teslim_edildi: 'Teslim Edildi', iptal: 'İptal' }
@@ -232,6 +233,22 @@ const IsEmriForm = ({ onKaydet, onIptal }) => {
         }))
       )
     }
+
+    if (isEmri) {
+      const seciliMusteri = musteriler.find(m => m.id === form.musteri_id)
+      const seciliArac = araclar.find(a => a.id === form.arac_id)
+      broadcastYoneticiBildirimi({
+        olayTipi: 'is_emri_olusturuldu',
+        isEmriId: isEmri.id,
+        isEmriNo: isEmri.is_emri_no,
+        durum: 'bekliyor',
+        musteriAdi: seciliMusteri ? `${seciliMusteri.ad || ''} ${seciliMusteri.soyad || ''}`.trim() : 'Müşteri',
+        plaka: seciliArac?.plaka || '',
+        markaModel: seciliArac ? `${seciliArac.marka || ''} ${seciliArac.model || ''}`.trim() : '',
+        tutar: isEmri.toplam_tutar || 0,
+      })
+    }
+
     onKaydet(); setKayitEdiliyor(false)
   }
 
@@ -1003,6 +1020,17 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
     await supabase.from('is_emirleri').update({ durum: yeniDurum }).eq('id', isEmri.id)
     setIsEmri(prev => ({ ...prev, durum: yeniDurum }))
     if (onDurumGuncelle) onDurumGuncelle(isEmri.id, yeniDurum, null)
+
+    broadcastYoneticiBildirimi({
+      olayTipi: yeniDurum === 'tamamlandi' ? 'is_emri_tamamlandi' : 'is_emri_durum_degisti',
+      isEmriId: isEmri.id,
+      isEmriNo: isEmri.is_emri_no,
+      durum: yeniDurum,
+      musteriAdi: `${isEmri.musteriler?.ad || ''} ${isEmri.musteriler?.soyad || ''}`.trim(),
+      plaka: isEmri.araclar?.plaka || '',
+      markaModel: `${isEmri.araclar?.marka || ''} ${isEmri.araclar?.model || ''}`.trim(),
+      tutar: isEmri.toplam_tutar || 0,
+    })
   }
 
   const handleOdemeDegistir = async (yeniOdeme) => {
@@ -1013,6 +1041,19 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
     setIsEmri(prev => ({ ...prev, odeme_durumu: yeniOdeme, odenen_tutar: updates.odenen_tutar ?? prev.odenen_tutar }))
     setForm(prev => ({ ...prev, odeme_durumu: yeniOdeme }))
     if (onDurumGuncelle) onDurumGuncelle(isEmri.id, null, yeniOdeme)
+
+    if (['odendi', 'kismi'].includes(yeniOdeme)) {
+      broadcastYoneticiBildirimi({
+        olayTipi: 'odeme_alindi',
+        isEmriId: isEmri.id,
+        isEmriNo: isEmri.is_emri_no,
+        durum: isEmri.durum,
+        musteriAdi: `${isEmri.musteriler?.ad || ''} ${isEmri.musteriler?.soyad || ''}`.trim(),
+        plaka: isEmri.araclar?.plaka || '',
+        markaModel: `${isEmri.araclar?.marka || ''} ${isEmri.araclar?.model || ''}`.trim(),
+        tutar: updates.odenen_tutar ?? isEmri.toplam_tutar ?? 0,
+      })
+    }
   }
 
   const durumBadge = (d) => {
@@ -1426,6 +1467,34 @@ const IsEmirleri = ({ acikIsEmri, onAcikIsEmriTemizle }) => {
     await supabase.from('is_emirleri').update(g).eq('id', id)
     fetchData()
     if (detayModal?.id === id) setDetayModal(prev => ({...prev, ...g}))
+
+    const hedef = isler.find(i => i.id === id)
+    if (hedef) {
+      if (yeniDurum) {
+        broadcastYoneticiBildirimi({
+          olayTipi: yeniDurum === 'tamamlandi' ? 'is_emri_tamamlandi' : 'is_emri_durum_degisti',
+          isEmriId: id,
+          isEmriNo: hedef.is_emri_no,
+          durum: yeniDurum,
+          musteriAdi: `${hedef.musteriler?.ad || ''} ${hedef.musteriler?.soyad || ''}`.trim(),
+          plaka: hedef.araclar?.plaka || '',
+          markaModel: `${hedef.araclar?.marka || ''} ${hedef.araclar?.model || ''}`.trim(),
+          tutar: hedef.toplam_tutar || 0,
+        })
+      }
+      if (['odendi', 'kismi'].includes(yeniOdeme)) {
+        broadcastYoneticiBildirimi({
+          olayTipi: 'odeme_alindi',
+          isEmriId: id,
+          isEmriNo: hedef.is_emri_no,
+          durum: hedef.durum,
+          musteriAdi: `${hedef.musteriler?.ad || ''} ${hedef.musteriler?.soyad || ''}`.trim(),
+          plaka: hedef.araclar?.plaka || '',
+          markaModel: `${hedef.araclar?.marka || ''} ${hedef.araclar?.model || ''}`.trim(),
+          tutar: hedef.toplam_tutar || 0,
+        })
+      }
+    }
   }
 
   const durumBadge = (d) => {
