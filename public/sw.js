@@ -1,4 +1,4 @@
-const CACHE_NAME = 'motorcum-v1.0.127'
+const CACHE_NAME = 'motorcum-v1.0.128'
 const APP_SHELL = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
@@ -59,6 +59,12 @@ self.addEventListener('fetch', (event) => {
 
 // Web Push (Apple & Google Push Servisinden gelen kilit ekranı uyarısı)
 self.addEventListener('push', (event) => {
+  // PC / Masaüstü ortamında bildirimi engelle (sağ altta çıkmaz, yalnızca mobil)
+  const ua = (self.navigator && self.navigator.userAgent) ? self.navigator.userAgent.toLowerCase() : ''
+  if (ua.includes('windows nt') || (ua.includes('macintosh') && !ua.includes('mobile')) || (ua.includes('x11') && !ua.includes('android'))) {
+    return
+  }
+
   let data = {}
   try {
     data = event.data ? event.data.json() : {}

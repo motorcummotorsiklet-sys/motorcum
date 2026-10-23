@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
-import { bildirimGonder, bildirimSesiCal, yerTutucuDoldur, normalizeRol } from '../../utils/pwaBildirim'
+import { bildirimGonder, bildirimSesiCal, yerTutucuDoldur, normalizeRol, isMobilCihaz } from '../../utils/pwaBildirim'
 
 const VARSAYILAN_AYARLAR = {
   is_emri_olusturuldu: {
@@ -100,6 +100,9 @@ export const useYoneticiBildirimleri = (profile) => {
 
     // Olayı işle ve cihaz bildirimini tetikle
     const bildirimiIsle = async (olayTipi, veri) => {
+      // YALNIZCA MOBİL CİHAZLARDA ÇALIŞIR (PC versiyonda sağ altta bildirim çıkmaz)
+      if (!isMobilCihaz()) return
+
       const ayar = ayarlarRef.current[olayTipi]
       if (!ayar || !ayar.aktif) return
 

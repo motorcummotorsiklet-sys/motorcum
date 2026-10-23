@@ -10,6 +10,23 @@ export const DURUMLAR_TR = {
   iptal: 'İptal',
 }
 
+// Mobil cihaz tespiti (PC / Masaüstü ortamında bildirim çıkmaması için)
+export const isMobilCihaz = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  const ua = (navigator.userAgent || navigator.vendor || window.opera || '').toLowerCase()
+  
+  // Kesin mobil işletim sistemleri
+  const mobilRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i
+  if (mobilRegex.test(ua)) return true
+
+  // iPadOS veya dokunmatik mobil cihazlar (Windows hariç)
+  if (navigator.maxTouchPoints && navigator.maxTouchPoints > 1 && !ua.includes('windows nt')) {
+    return true
+  }
+
+  return false
+}
+
 // Türkçe karakterleri normalize eden fonksiyon (rol karşılaştırması için)
 export const normalizeRol = (r) => {
   if (!r) return ''
@@ -54,9 +71,14 @@ export const bildirimSesiCal = () => {
   }
 }
 
-// Sistem / Telefon Bildirimi Gönderme (PWA destekli)
+// Sistem / Telefon Bildirimi Gönderme (YALNIZCA MOBİL CİHAZLARDA ÇALIŞIR - PC'DE SAĞ ALTTA BİLDİRİM ÇIKMAZ)
 export const bildirimGonder = async (baslik, mesaj, url = '/dashboard') => {
   if (typeof window === 'undefined') return false
+
+  // PC / Masaüstü ortamında bildirim gösterilmez, sadece mobil
+  if (!isMobilCihaz()) {
+    return false
+  }
 
   // Web Notification izni yoksa bile çalışır vaziyette tut
   if (!('Notification' in window)) return false

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../context/AuthContext'
-import { bildirimGonder, bildirimSesiCal, broadcastAyarlarGuncellendi } from '../../utils/pwaBildirim'
+import { bildirimGonder, bildirimSesiCal, broadcastAyarlarGuncellendi, isMobilCihaz } from '../../utils/pwaBildirim'
 import { webPushAboneOl, webPushTetikle } from '../../utils/webPushManager'
 
 const OLAYLAR = [
@@ -316,6 +316,11 @@ const Bildirimler = () => {
   }, [aktifYoneticiOlay, sablonlar])
 
   const izinIste = async () => {
+    if (!isMobilCihaz()) {
+      showMsg('ℹ️ Yönetici bildirimleri sadece mobil cihazlara (kilit ekranı ve bildirim çubuğu) gider. PC masaüstünde bildirim gösterilmez.')
+      return
+    }
+
     if (typeof window === 'undefined' || !('Notification' in window)) {
       showMsg('Bu tarayıcı bildirimleri desteklemiyor.', 'error')
       return
@@ -339,6 +344,22 @@ const Bildirimler = () => {
   }
 
   const testYoneticiBildirimi = async () => {
+    const baslik = onizlemeUret(yoneticiTaslak.baslik || '🔧 Yeni İş Emri: {arac_plaka}')
+    const mesaj = onizlemeUret(yoneticiTaslak.icerik || '#{is_emri_no} nolu araç servise alındı.')
+
+    // Eğer PC'den test ediliyorsa: PC'de bildirim fırlatma, doğrudan hedef rollerin telefonlarına Web Push gönder
+    if (!isMobilCihaz()) {
+      await webPushTetikle({
+        baslik,
+        mesaj,
+        url: '/dashboard',
+        hedefRoller: yoneticiTaslak.roller
+      })
+      showMsg('✅ Test bildirimi seçili rollere ait telefonlara gönderildi! (PC versiyonda bildirim kapalıdır, telefonunuzu kontrol edin.)')
+      return
+    }
+
+    // Mobil cihazda test ediliyorsa:
     if (typeof window === 'undefined' || !('Notification' in window)) {
       showMsg('Bu tarayıcı bildirimleri desteklemiyor.', 'error')
       return
@@ -358,8 +379,6 @@ const Bildirimler = () => {
     if (yoneticiTaslak.ses) {
       bildirimSesiCal()
     }
-    const baslik = onizlemeUret(yoneticiTaslak.baslik || '🔧 Yeni İş Emri: {arac_plaka}')
-    const mesaj = onizlemeUret(yoneticiTaslak.icerik || '#{is_emri_no} nolu araç servise alındı.')
     
     // Hem yerel bildirim gönder hem Apple/Google Web Push fırlat
     await bildirimGonder(baslik, mesaj, '/dashboard')
@@ -370,7 +389,7 @@ const Bildirimler = () => {
       hedefRoller: yoneticiTaslak.roller
     })
 
-    showMsg('✅ Test bildirimi gönderildi! Telefon/cihaz kilit ekranı ve bildirim çubuğunu kontrol edin.')
+    showMsg('✅ Test bildirimi gönderildi! Telefonunuzun kilit ekranı ve bildirim çubuğunu kontrol edin.')
   }
 
   const yoneticiKaydet = async () => {
@@ -625,9 +644,25 @@ const Bildirimler = () => {
                 </button>
               )}
               <button className="btn btn-secondary btn-sm" onClick={testYoneticiBildirimi}>
-                🧪 Bu Cihazda Test Et
+                {isMobilCihaz() ? '🧪 Bu Cihazda Test Et' : '📱 Telefonlara Test Gönder'}
               </button>
             </div>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'rgba(59, 130, 246, 0.08)',
+            border: '1px solid rgba(59, 130, 246, 0.25)',
+            borderRadius: 8,
+            padding: '10px 14px',
+            fontSize: 12.5,
+            color: 'var(--text-main, #fff)',
+            marginBottom: 16
+          }}>
+            <span>📱</span>
+            <span><strong>Mobil Bildirim:</strong> Yönetici bildirimleri seçili personellerin telefonlarına (kilit ekranı ve bildirim çubuğu) iletilir. PC masaüstünde sağ altta bildirim çıkmaz.</span>
           </div>
 
           <div className="bildirim-sablon-grid" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
@@ -795,7 +830,7 @@ const Bildirimler = () => {
                 {/* Aksiyon Butonları */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 10 }}>
                   <button type="button" className="btn btn-secondary" onClick={testYoneticiBildirimi}>
-                    🧪 Bu Bildirimi Cihazımda Test Et
+                    {isMobilCihaz() ? '🧪 Bu Bildirimi Cihazımda Test Et' : '📱 Seçili Rollere Test Gönder'}
                   </button>
                   <button type="button" className="btn btn-primary" onClick={yoneticiKaydet} disabled={yoneticiKaydediliyor}>
                     {yoneticiKaydediliyor ? 'Kaydediliyor...' : '💾 Ayarları Kaydet'}

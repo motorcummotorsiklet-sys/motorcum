@@ -20,6 +20,16 @@ export default async function handler(req, res) {
     const endpoint = subscription.endpoint
     const p256dh = subscription.keys.p256dh
     const auth = subscription.keys.auth
+    const uaString = userAgent || req.headers['user-agent'] || ''
+    const lowUA = uaString.toLowerCase()
+
+    // PC / Masaüstü ortamlarını aboneliğe ekleme (yalnızca mobil cihazlar)
+    const isMasaustu = lowUA.includes('windows nt') || (lowUA.includes('macintosh') && !lowUA.includes('mobile')) || (lowUA.includes('x11') && !lowUA.includes('android'))
+    if (isMasaustu) {
+      // Varsa eski masaüstü kaydını da sil
+      await supabase.from('push_abonelikleri').delete().eq('endpoint', endpoint)
+      return res.status(200).json({ success: true, message: 'PC/Masaüstü aboneliği atlandı.' })
+    }
 
     const payload = {
       endpoint,
@@ -27,7 +37,7 @@ export default async function handler(req, res) {
       auth,
       user_id: user_id || null,
       rol: (rol || 'admin').toLowerCase().trim(),
-      user_agent: userAgent || req.headers['user-agent'] || '',
+      user_agent: uaString,
       updated_at: new Date().toISOString()
     }
 

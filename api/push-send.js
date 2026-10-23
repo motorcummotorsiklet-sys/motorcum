@@ -37,11 +37,24 @@ export default async function handler(req, res) {
       })
     }
 
-    // 2. Rol filtrelemesi (hedefRoller verilmişse)
+    // 2. Rol filtrelemesi & YALNIZCA MOBİL CİHAZ FİLTRESİ (PC / Masaüstü cihazlara bildirim gitmez)
     const norm = (s) => (s || '').toLowerCase().replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').trim()
     const hedefRollerNorm = Array.isArray(hedefRoller) ? hedefRoller.map(norm) : []
 
+    const isMobilUA = (ua) => {
+      if (!ua) return true
+      const low = ua.toLowerCase()
+      // Windows, Mac Masaüstü veya Linux Masaüstü ise kesinlikle mobil değildir
+      if (low.includes('windows nt') || (low.includes('macintosh') && !low.includes('mobile')) || (low.includes('x11') && !low.includes('android'))) {
+        return false
+      }
+      return true
+    }
+
     const gonderilecekAboneler = abonelikler.filter((abone) => {
+      // Masaüstü / PC abonelerini engelle
+      if (!isMobilUA(abone.user_agent)) return false
+
       if (hedefRollerNorm.length === 0) return true
       const r = norm(abone.rol)
       return hedefRollerNorm.includes(r) ||

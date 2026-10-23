@@ -1,4 +1,6 @@
 // Web Push Abonelik ve Gönderim Yönetimi
+import { isMobilCihaz } from './pwaBildirim'
+
 export const VAPID_PUBLIC_KEY = 'BD0IZFgURrjaMSRDH8ZNlR5PTzf0g1E9OFbzKufouZpW8JTxcCxjBQjyJM48e1cTMuW8ptW6_xumtR88xm5e8J0'
 
 function urlBase64ToUint8Array(base64String) {
@@ -12,11 +14,23 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray
 }
 
-// Cihazı Apple / Google Web Push servisine kaydeder
+// Cihazı Apple / Google Web Push servisine kaydeder (YALNIZCA MOBİL CİHAZLAR)
 export const webPushAboneOl = async (profile) => {
   if (typeof window === 'undefined') return { success: false, reason: 'no_window' }
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     return { success: false, reason: 'unsupported' }
+  }
+
+  // PC / Masaüstü cihazları kaydetme; varsa önceden kalan aboneliği kaldır
+  if (!isMobilCihaz()) {
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        await sub.unsubscribe()
+      }
+    } catch {}
+    return { success: false, reason: 'desktop_skipped' }
   }
 
   try {
