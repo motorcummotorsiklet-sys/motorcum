@@ -132,7 +132,7 @@ export const useYoneticiBildirimleri = (profile) => {
       }
 
       // 2. Telefon / PWA sistem bildirimi gönder (Kilit ekranı ve bildirim çubuğu)
-      await bildirimGonder(baslik, mesaj, '/dashboard')
+      await bildirimGonder(baslik, mesaj, '/dashboard', veri?.isEmriId)
     }
 
     // --- SUPABASE REALTIME KANALI (BROADCAST + POSTGRES_CHANGES) ---
@@ -142,7 +142,7 @@ export const useYoneticiBildirimleri = (profile) => {
     channel.on('broadcast', { event: 'is_emri_olay' }, async ({ payload }) => {
       if (!payload || !payload.olayTipi) return
 
-      const anahtar = `${payload.isEmriId || 'yeni'}:${payload.olayTipi}:${payload.durum || ''}:${payload.timestamp || ''}`
+      const anahtar = `${payload.isEmriId || 'yeni'}:${payload.olayTipi}`
       if (sonBildirilenlerRef.current.has(anahtar)) return
       sonBildirilenlerRef.current.add(anahtar)
 
@@ -159,13 +159,25 @@ export const useYoneticiBildirimleri = (profile) => {
       }
     })
 
-    // 3. Postgres Changes Yedek Dinleyicisi
+    // 3. Postgres Changes Yedek Dinleyicisi (Yalnızca broadcast kaçarsa tetikler)
     channel.on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'is_emirleri' },
       async (payload) => {
         if (!payload.new || !payload.new.id) return
         const isId = payload.new.id
+
+        if (payload.eventType === 'INSERT') {
+          const anahtar = `${isId}:is_emri_olusturuldu`
+          if (sonBildirilenlerRef.current.has(anahtar)) return
+          sonBildirilenlerRef.current.add(anahtar)
+        } else if (payload.eventType === 'UPDATE') {
+          const yeniDurum = payload.new.durum
+          const olayTipi = yeniDurum === 'tamamlandi' ? 'is_emri_tamamlandi' : 'is_emri_durum_degisti'
+          const anahtar = `${isId}:${olayTipi}`
+          if (sonBildirilenlerRef.current.has(anahtar)) return
+          sonBildirilenlerRef.current.add(anahtar)
+        }
 
         // Detayları çek
         let musteriAdi = 'Müşteri'
@@ -200,25 +212,17 @@ export const useYoneticiBildirimleri = (profile) => {
         }
 
         if (payload.eventType === 'INSERT') {
-          const anahtar = `${isId}:olusturuldu`
-          if (!sonBildirilenlerRef.current.has(anahtar)) {
-            sonBildirilenlerRef.current.add(anahtar)
-            await bildirimiIsle('is_emri_olusturuldu', ortakVeri)
-          }
+          await bildirimiIsle('is_emri_olusturuldu', ortakVeri)
         } else if (payload.eventType === 'UPDATE') {
           const yeniDurum = payload.new.durum
-          const anahtarDurum = `${isId}:durum:${yeniDurum}`
-          if (!sonBildirilenlerRef.current.has(anahtarDurum)) {
-            sonBildirilenlerRef.current.add(anahtarDurum)
-            if (yeniDurum === 'tamamlandi') {
-              await bildirimiIsle('is_emri_tamamlandi', ortakVeri)
-            } else {
-              await bildirimiIsle('is_emri_durum_degisti', ortakVeri)
-            }
+          if (yeniDurum === 'tamamlandi') {
+            await bildirimiIsle('is_emri_tamamlandi', ortakVeri)
+          } else {
+            await bildirimiIsle('is_emri_durum_degisti', ortakVeri)
           }
 
           if (['odendi', 'kismi'].includes(payload.new.odeme_durumu)) {
-            const anahtarOdeme = `${isId}:odeme:${payload.new.odeme_durumu}:${payload.new.odenen_tutar}`
+            const anahtarOdeme = `${isId}:odeme_alindi`
             if (!sonBildirilenlerRef.current.has(anahtarOdeme)) {
               sonBildirilenlerRef.current.add(anahtarOdeme)
               await bildirimiIsle('odeme_alindi', ortakVeri)

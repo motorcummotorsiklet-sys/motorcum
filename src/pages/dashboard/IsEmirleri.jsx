@@ -1019,7 +1019,6 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
   }
 
   const handleDurumDegistir = async (yeniDurum) => {
-    await supabase.from('is_emirleri').update({ durum: yeniDurum }).eq('id', isEmri.id)
     setIsEmri(prev => ({ ...prev, durum: yeniDurum }))
     if (onDurumGuncelle) {
       onDurumGuncelle(isEmri.id, yeniDurum, null)
@@ -1030,7 +1029,6 @@ const IsEmriDetay = ({ is: initialIs, onKapat, onDurumGuncelle, onGuncellendi, o
     const updates = { odeme_durumu: yeniOdeme }
     if (yeniOdeme === 'odendi') updates.odenen_tutar = isEmri.toplam_tutar
     if (yeniOdeme === 'odenmedi') updates.odenen_tutar = 0
-    await supabase.from('is_emirleri').update(updates).eq('id', isEmri.id)
     setIsEmri(prev => ({ ...prev, odeme_durumu: yeniOdeme, odenen_tutar: updates.odenen_tutar ?? prev.odenen_tutar }))
     setForm(prev => ({ ...prev, odeme_durumu: yeniOdeme }))
     if (onDurumGuncelle) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'motorcum-v1.0.132'
+const CACHE_NAME = 'motorcum-v1.0.134'
 const APP_SHELL = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
@@ -72,7 +72,7 @@ self.addEventListener('push', (event) => {
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     vibrate: [300, 150, 300],
-    tag: data.tag || 'bildirim-' + Date.now(),
+    tag: data.tag || (data.isEmriId ? `is-${data.isEmriId}` : 'servis-bildirim'),
     renotify: true,
     data: {
       url: data.url || '/dashboard'

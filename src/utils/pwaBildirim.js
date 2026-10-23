@@ -72,7 +72,7 @@ export const bildirimSesiCal = () => {
 }
 
 // Sistem / Telefon Bildirimi Gönderme (YALNIZCA MOBİL CİHAZLARDA ÇALIŞIR - PC'DE SAĞ ALTTA BİLDİRİM ÇIKMAZ)
-export const bildirimGonder = async (baslik, mesaj, url = '/dashboard') => {
+export const bildirimGonder = async (baslik, mesaj, url = '/dashboard', isEmriId = null) => {
   if (typeof window === 'undefined') return false
 
   // PC / Masaüstü ortamında bildirim gösterilmez, sadece mobil
@@ -89,7 +89,7 @@ export const bildirimGonder = async (baslik, mesaj, url = '/dashboard') => {
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     vibrate: [250, 100, 250],
-    tag: 'bildirim-' + Date.now(),
+    tag: isEmriId ? `is-${isEmriId}` : 'servis-bildirim',
     renotify: true,
     data: { url: url || '/dashboard' }
   }
@@ -263,7 +263,8 @@ export const broadcastYoneticiBildirimi = async (olayData) => {
       mesaj: sonMesaj,
       url: '/dashboard',
       hedefRoller,
-      olayTipi
+      olayTipi,
+      isEmriId: olayData.isEmriId
     })
   } catch (err) {
     console.warn('Web push gönderim hatası:', err)

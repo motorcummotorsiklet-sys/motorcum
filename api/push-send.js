@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { baslik, mesaj, url, hedefRoller, olayTipi } = req.body || {}
+    const { baslik, mesaj, url, hedefRoller, olayTipi, isEmriId } = req.body || {}
 
     if (!baslik || !mesaj) {
       return res.status(400).json({ error: 'Başlık ve mesaj zorunludur.' })
@@ -76,11 +76,13 @@ export default async function handler(req, res) {
     }
 
     // 3. Apple ve Google Push sunucularına bildirim paketini gönder
+    const tag = isEmriId ? `is-${isEmriId}` : `bildirim-${olayTipi || 'genel'}`
     const notificationPayload = JSON.stringify({
       title: baslik,
       body: mesaj,
       url: url || '/dashboard',
-      tag: 'bildirim-' + Date.now(),
+      tag,
+      isEmriId,
       timestamp: Date.now()
     })
 
