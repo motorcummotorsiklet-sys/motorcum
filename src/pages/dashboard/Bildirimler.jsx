@@ -1,11 +1,46 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../context/AuthContext'
+import { bildirimGonder, bildirimSesiCal } from '../../utils/pwaBildirim'
 
 const OLAYLAR = [
   { key: 'is_emri_olusturuldu', baslik: '🔧 İş Emri Oluşturuldu', aciklama: 'Araç servise alındığında müşteriye gider' },
   { key: 'is_emri_tamamlandi',  baslik: '✅ İş Emri Tamamlandı',   aciklama: 'Araç teslime hazır olduğunda müşteriye gider' },
   { key: 'odeme_alindi',        baslik: '💰 Ödeme Alındı',         aciklama: 'Ödeme kaydedildiğinde müşteriye gider' },
+]
+
+const YONETICI_OLAYLAR = [
+  {
+    key: 'is_emri_olusturuldu',
+    baslik: '🔧 İş Emri Oluşturuldu',
+    aciklama: 'Yeni iş emri açıldığında yönetici telefonuna bildirim gider',
+    varsayilanBaslik: '🔧 Yeni İş Emri: {arac_plaka}',
+    varsayilanIcerik: '#{is_emri_no} nolu araç servise alındı. Müşteri: {musteri_adi}',
+    varsayilanRoller: ['admin', 'yönetici'],
+  },
+  {
+    key: 'is_emri_tamamlandi',
+    baslik: '✅ İş Emri Tamamlandı',
+    aciklama: 'Araç hazır olduğunda yönetici telefonuna bildirim gider',
+    varsayilanBaslik: '✅ Servis Tamamlandı: {arac_plaka}',
+    varsayilanIcerik: '#{is_emri_no} nolu araç hazır. Toplam: {tutar}',
+    varsayilanRoller: ['admin', 'yönetici'],
+  },
+  {
+    key: 'odeme_alindi',
+    baslik: '💰 Ödeme Alındı',
+    aciklama: 'Ödeme kaydedildiğinde yönetici telefonuna bildirim gider',
+    varsayilanBaslik: '💰 Ödeme Alındı: {tutar}',
+    varsayilanIcerik: '{arac_plaka} plakalı iş emri #{is_emri_no} için ödeme kaydedildi.',
+    varsayilanRoller: ['admin', 'yönetici'],
+  },
+]
+
+const HEDEF_ROLLER = [
+  { key: 'admin', label: 'Admin (Yönetici)' },
+  { key: 'yönetici', label: 'Yönetici' },
+  { key: 'usta', label: 'Usta' },
+  { key: 'teknisyen', label: 'Teknisyen' },
 ]
 
 const SMS_SAGLAYICILAR = {
@@ -90,7 +125,7 @@ const onizlemeUret = (metin) => {
 
 const Bildirimler = () => {
   const { profile } = useAuth()
-  const [gorunum, setGorunum] = useState('sablonlar') // 'sablonlar' | 'baglantilar'
+  const [gorunum, setGorunum] = useState('sablonlar') // 'sablonlar' | 'yonetici' | 'baglantilar'
   const [aktifTip, setAktifTip] = useState('sms') // 'sms' | 'email'
   const [aktifOlay, setAktifOlay] = useState('is_emri_olusturuldu')
   const [sablonlar, setSablonlar] = useState({}) // { 'sms:olay': {konu, icerik, aktif, id} }
@@ -98,6 +133,16 @@ const Bildirimler = () => {
   const [loading, setLoading] = useState(true)
   const [kaydediliyor, setKaydediliyor] = useState(false)
   const [msg, setMsg] = useState({ text: '', type: '' })
+
+  // Yönetici Bildirimi Sekmesi State'leri
+  const [aktifYoneticiOlay, setAktifYoneticiOlay] = useState('is_emri_olusturuldu')
+  const [yoneticiTaslak, setYoneticiTaslak] = useState({
+    baslik: '', icerik: '', roller: ['admin', 'yönetici'], ses: true, aktif: true
+  })
+  const [yoneticiKaydediliyor, setYoneticiKaydediliyor] = useState(false)
+  const [izinDurumu, setIzinDurumu] = useState(() => {
+    return typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
+  })
 
   // Bağlantılar (kendi SMS/e-posta sağlayıcı ayarları)
   const [entegrasyon, setEntegrasyon] = useState({ sms_saglayici: 'yok', sms_ayarlar: {}, email_yontemi: 'yok', email_ayarlar: {} })
@@ -183,24 +228,165 @@ const Bildirimler = () => {
     setTaslak(prev => ({ ...prev, icerik: prev.icerik + yer }))
   }
 
+  // Yönetici taslağını veritabanındaki şablondan yükle
+  useEffect(() => {
+    const s = sablonlar[`yonetici:${aktifYoneticiOlay}`]
+    const def = YONETICI_OLAYLAR.find(o => o.key === aktifYoneticiOlay) || YONETICI_OLAYLAR[0]
+
+    let baslik = def.varsayilanBaslik
+    let roller = def.varsayilanRoller
+    let ses = true
+
+    if (s?.konu) {
+      try {
+        if (s.konu.startsWith('{')) {
+          const parsed = JSON.parse(s.konu)
+          if (parsed.baslik) baslik = parsed.baslik
+          if (Array.isArray(parsed.roller)) roller = parsed.roller
+          if (typeof parsed.ses === 'boolean') ses = parsed.ses
+        } else {
+          baslik = s.konu
+        }
+      } catch {}
+    }
+
+    setYoneticiTaslak({
+      baslik,
+      icerik: s?.icerik || def.varsayilanIcerik,
+      roller,
+      ses,
+      aktif: s?.aktif ?? true,
+    })
+  }, [aktifYoneticiOlay, sablonlar])
+
+  const izinIste = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      showMsg('Bu tarayıcı bildirimleri desteklemiyor.', 'error')
+      return
+    }
+    try {
+      const p = await Notification.requestPermission()
+      setIzinDurumu(p)
+      if (p === 'granted') {
+        showMsg('✅ Bildirim izni verildi! Telefonunuza anlık bildirimler gelecek.')
+      } else {
+        showMsg('Bildirim izni reddedildi.', 'error')
+      }
+    } catch (e) {
+      showMsg('İzin alınırken hata: ' + e.message, 'error')
+    }
+  }
+
+  const testYoneticiBildirimi = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      showMsg('Bu tarayıcı bildirimleri desteklemiyor.', 'error')
+      return
+    }
+    if (Notification.permission !== 'granted') {
+      const p = await Notification.requestPermission()
+      setIzinDurumu(p)
+      if (p !== 'granted') {
+        showMsg('Lütfen önce bildirim izni verin.', 'error')
+        return
+      }
+    }
+    if (yoneticiTaslak.ses) {
+      bildirimSesiCal()
+    }
+    const baslik = onizlemeUret(yoneticiTaslak.baslik || '🔧 Yeni İş Emri: {arac_plaka}')
+    const mesaj = onizlemeUret(yoneticiTaslak.icerik || '#{is_emri_no} nolu araç servise alındı.')
+    const basarili = await bildirimGonder(baslik, mesaj, '/dashboard')
+    if (basarili) {
+      showMsg('✅ Test bildirimi gönderildi! Telefon/cihaz bildirim çubuğunu kontrol edin.')
+    } else {
+      showMsg('Bildirim gönderilemedi. Cihaz ayarlarınızı kontrol edin.', 'error')
+    }
+  }
+
+  const yoneticiKaydet = async () => {
+    setYoneticiKaydediliyor(true)
+    const mevcut = sablonlar[`yonetici:${aktifYoneticiOlay}`]
+    const konuData = JSON.stringify({
+      baslik: yoneticiTaslak.baslik,
+      roller: yoneticiTaslak.roller,
+      ses: yoneticiTaslak.ses,
+    })
+    const payload = {
+      tip: 'yonetici',
+      olay: aktifYoneticiOlay,
+      konu: konuData,
+      icerik: yoneticiTaslak.icerik,
+      aktif: yoneticiTaslak.aktif,
+      servis_formu_ekle: false,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data, error } = mevcut
+      ? await supabase.from('bildirim_sablonlari').update(payload).eq('id', mevcut.id).select().single()
+      : await supabase.from('bildirim_sablonlari').insert(payload).select().single()
+
+    if (error) {
+      showMsg('Kaydedilemedi: ' + error.message, 'error')
+    } else {
+      setSablonlar(prev => ({ ...prev, [`yonetici:${aktifYoneticiOlay}`]: data }))
+      showMsg('✅ Yönetici bildirim ayarları kaydedildi.')
+    }
+    setYoneticiKaydediliyor(false)
+  }
+
+  const rolToggle = (rolKey) => {
+    setYoneticiTaslak(prev => {
+      const varMi = prev.roller.includes(rolKey)
+      return {
+        ...prev,
+        roller: varMi ? prev.roller.filter(r => r !== rolKey) : [...prev.roller, rolKey]
+      }
+    })
+  }
+
+  const yoneticiYerTutucuEkle = (yer) => {
+    setYoneticiTaslak(prev => ({ ...prev, icerik: prev.icerik + yer }))
+  }
+
   if (loading) return <div className="empty-state"><p>Yükleniyor...</p></div>
 
   return (
     <div>
       {msg.text && <div className={`alert ${msg.type === 'error' ? 'alert-error' : 'alert-success'}`} style={{ marginBottom: '1rem' }}>{msg.text}</div>}
 
-      <div style={{
-        marginBottom: 16, padding: '12px 16px', background: 'rgba(59,130,246,.08)',
-        border: '1px solid rgba(59,130,246,.25)', borderRadius: 10, fontSize: 13, lineHeight: 1.6,
-      }}>
-        ℹ️ Burada yazdığın metinler, müşterinin <strong>iletişim tercihine</strong> göre otomatik gönderilecek.
-        Gönderim, <strong>senin kendi bağladığın SMS/e-posta hesabından</strong> yapılır — maliyet dükkanına
-        aittir, platform üzerinden ekstra ücret alınmaz. Sağlayıcı bağlantısını <strong>"🔌 Bağlantılar"</strong> sekmesinden yap.
-      </div>
+      {gorunum === 'sablonlar' && (
+        <div style={{
+          marginBottom: 16, padding: '12px 16px', background: 'rgba(59,130,246,.08)',
+          border: '1px solid rgba(59,130,246,.25)', borderRadius: 10, fontSize: 13, lineHeight: 1.6,
+        }}>
+          ℹ️ Burada yazdığın metinler, müşterinin <strong>iletişim tercihine</strong> göre otomatik gönderilecek.
+          Gönderim, <strong>senin kendi bağladığın SMS/e-posta hesabından</strong> yapılır — maliyet dükkanına
+          aittir, platform üzerinden ekstra ücret alınmaz. Sağlayıcı bağlantısını <strong>"🔌 Bağlantılar"</strong> sekmesinden yap.
+        </div>
+      )}
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button className={`btn btn-sm ${gorunum === 'sablonlar' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setGorunum('sablonlar')}>✏️ Mesaj Şablonları</button>
-        <button className={`btn btn-sm ${gorunum === 'baglantilar' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setGorunum('baglantilar')}>🔌 Bağlantılar</button>
+      {gorunum === 'yonetici' && (
+        <div style={{
+          marginBottom: 16, padding: '12px 16px', background: 'rgba(229,72,77,.08)',
+          border: '1px solid rgba(229,72,77,.25)', borderRadius: 10, fontSize: 13, lineHeight: 1.6,
+        }}>
+          📱 <strong>Yönetici & Usta Bildirimleri (PWA):</strong> İş emri oluşturulduğunda, tamamlandığında veya ödeme alındığında seçtiğiniz rollere telefon bildirimi ve sesli uyarı anlık olarak ulaşır.
+        </div>
+      )}
+
+      {gorunum === 'baglantilar' && (
+        <div style={{
+          marginBottom: 16, padding: '12px 16px', background: 'rgba(59,130,246,.08)',
+          border: '1px solid rgba(59,130,246,.25)', borderRadius: 10, fontSize: 13, lineHeight: 1.6,
+        }}>
+          🔌 Müşterilere SMS ve E-posta gönderebilmek için sağlayıcı API ve bağlantı ayarlarınızı buradan yapılandırabilirsiniz.
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button className={`btn btn-sm ${gorunum === 'sablonlar' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setGorunum('sablonlar')}>✏️ Müşteri Şablonları</button>
+        <button className={`btn btn-sm ${gorunum === 'yonetici' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setGorunum('yonetici')}>📱 Yönetici Bildirimi</button>
+        <button className={`btn btn-sm ${gorunum === 'baglantilar' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setGorunum('baglantilar')}>🔌 Sağlayıcı Bağlantıları</button>
       </div>
 
       {gorunum === 'baglantilar' ? (
@@ -296,6 +482,223 @@ const Bildirimler = () => {
             </button>
           </div>
         </div>
+      ) : gorunum === 'yonetici' ? (
+        <>
+          {/* Cihaz Bildirim İzni Durumu Kartı */}
+          <div className="table-card" style={{ marginBottom: 16, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10,
+                background: izinDurumu === 'granted' ? 'rgba(34,197,94,.15)' : izinDurumu === 'denied' ? 'rgba(239,68,68,.15)' : 'rgba(234,179,8,.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20
+              }}>
+                {izinDurumu === 'granted' ? '🔔' : izinDurumu === 'denied' ? '🔕' : '⚠️'}
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {izinDurumu === 'granted'
+                    ? 'Bu Cihazda Anlık Bildirimler Aktif'
+                    : izinDurumu === 'denied'
+                      ? 'Bildirim İzni Engellenmiş'
+                      : 'Bildirim İzni Henüz Verilmedi'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                  {izinDurumu === 'granted'
+                    ? 'Telefonunuz kilitliyken veya uygulama arka plandayken bildirim sesiyle anlık uyarı alırsınız.'
+                    : izinDurumu === 'denied'
+                      ? 'Tarayıcı veya telefon ayarlarınızdan Motorcum için bildirim iznini açmanız gerekir.'
+                      : 'Yeni iş emri, tamamlama ve ödemeleri anında telefonunuzda görmek için izin verin.'}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {izinDurumu !== 'granted' && (
+                <button className="btn btn-primary btn-sm" onClick={izinIste}>
+                  🔔 Bildirim İznini Aç
+                </button>
+              )}
+              <button className="btn btn-secondary btn-sm" onClick={testYoneticiBildirimi}>
+                🧪 Bu Cihazda Test Et
+              </button>
+            </div>
+          </div>
+
+          <div className="bildirim-sablon-grid" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
+            {/* Olay listesi */}
+            <div className="table-card">
+              <div className="table-header"><span className="table-title">Bildirim Adımları</span></div>
+              {YONETICI_OLAYLAR.map(o => {
+                const s = sablonlar[`yonetici:${o.key}`]
+                const secili = aktifYoneticiOlay === o.key
+                const aktif = s ? s.aktif : true
+                return (
+                  <div
+                    key={o.key}
+                    onClick={() => setAktifYoneticiOlay(o.key)}
+                    style={{
+                      padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
+                      background: secili ? 'var(--bg-elevated, rgba(255,255,255,.04))' : 'transparent',
+                      borderLeft: secili ? '2px solid var(--red, #e5484d)' : '2px solid transparent',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{o.baslik}</div>
+                      {!aktif && <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'var(--bg-elevated)', padding: '1px 6px', borderRadius: 4 }}>pasif</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>{o.aciklama}</div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Olay Düzenleme & Ayarları */}
+            <div className="table-card">
+              <div className="table-header">
+                <span className="table-title">{YONETICI_OLAYLAR.find(o => o.key === aktifYoneticiOlay)?.baslik} Ayarları</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={yoneticiTaslak.aktif}
+                    onChange={e => setYoneticiTaslak(prev => ({ ...prev, aktif: e.target.checked }))}
+                  />
+                  Bu bildirim adımı aktif
+                </label>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Bildirimi Alacak Roller */}
+                <div className="field">
+                  <label style={{ marginBottom: 6, display: 'block' }}>Bildirimi Alacak Roller (Telefonuna Bildirim Gidecek Kişiler)</label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {HEDEF_ROLLER.map(rol => {
+                      const secili = yoneticiTaslak.roller.includes(rol.key)
+                      return (
+                        <button
+                          key={rol.key}
+                          type="button"
+                          onClick={() => rolToggle(rol.key)}
+                          className={`btn btn-sm ${secili ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            opacity: secili ? 1 : 0.65,
+                            border: secili ? '1px solid var(--red, #e5484d)' : '1px solid var(--border)'
+                          }}
+                        >
+                          <span>{secili ? '✓' : '+'}</span>
+                          <span>{rol.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                    Yalnızca bu role sahip kullanıcıların telefon veya bilgisayarlarına anlık bildirim düşer.
+                  </div>
+                </div>
+
+                {/* Ses Uyarısı */}
+                <div style={{ padding: '10px 14px', background: 'var(--bg-elevated, rgba(255,255,255,.02))', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                    <input
+                      type="checkbox"
+                      checked={yoneticiTaslak.ses}
+                      onChange={e => setYoneticiTaslak(prev => ({ ...prev, ses: e.target.checked }))}
+                    />
+                    🔔 Bildirim geldiğinde sesli uyarı çal
+                  </label>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 24, marginTop: 2 }}>
+                    Bildirim düştüğünde telefon hoparlöründen dikkat çekici 2 tonlu servis melodi sesi çalar.
+                  </div>
+                </div>
+
+                {/* Bildirim Başlığı */}
+                <div className="field">
+                  <label>Bildirim Başlığı</label>
+                  <input
+                    type="text"
+                    value={yoneticiTaslak.baslik}
+                    onChange={e => setYoneticiTaslak(prev => ({ ...prev, baslik: e.target.value }))}
+                    placeholder="Örn: 🔧 Yeni İş Emri: {arac_plaka}"
+                  />
+                </div>
+
+                {/* Bildirim Mesajı */}
+                <div className="field">
+                  <label>Bildirim Mesajı</label>
+                  <textarea
+                    rows={3}
+                    value={yoneticiTaslak.icerik}
+                    onChange={e => setYoneticiTaslak(prev => ({ ...prev, icerik: e.target.value }))}
+                    placeholder="Bildirim metnini yazın..."
+                  />
+                </div>
+
+                {/* Yer Tutucular */}
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Yer Tutucular (Tıkla ve mesaja ekle):</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {YER_TUTUCULAR.map(([tag, acik]) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11, padding: '3px 8px' }}
+                        title={acik}
+                        onClick={() => yoneticiYerTutucuEkle(tag)}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mobil Bildirim Önizlemesi */}
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>📱 Telefon Ekranı Bildirim Görünümü (Canlı Önizleme):</div>
+                  <div style={{
+                    maxWidth: 420,
+                    background: '#18181b',
+                    color: '#f4f4f5',
+                    borderRadius: 14,
+                    padding: '12px 14px',
+                    border: '1px solid rgba(255,255,255,.15)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,.35)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 13 }}>🏍️</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#e4e4e7' }}>Motorcum Servis</span>
+                      </div>
+                      <span style={{ fontSize: 10.5, color: '#a1a1aa' }}>Şimdi</span>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff', marginBottom: 3 }}>
+                      {onizlemeUret(yoneticiTaslak.baslik) || <span style={{ color: '#71717a' }}>Başlık girilmedi</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#d4d4d8', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                      {onizlemeUret(yoneticiTaslak.icerik) || <span style={{ color: '#71717a' }}>Mesaj metni girilmedi</span>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 10.5, color: '#a1a1aa' }}>
+                      <span>🎯 Hedef Roller: {yoneticiTaslak.roller.length > 0 ? yoneticiTaslak.roller.join(', ') : 'Seçilmedi'}</span>
+                      {yoneticiTaslak.ses && <span>🔔 Sesli</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Aksiyon Butonları */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 10 }}>
+                  <button type="button" className="btn btn-secondary" onClick={testYoneticiBildirimi}>
+                    🧪 Bu Bildirimi Cihazımda Test Et
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={yoneticiKaydet} disabled={yoneticiKaydediliyor}>
+                    {yoneticiKaydediliyor ? 'Kaydediliyor...' : '💾 Ayarları Kaydet'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       ) : (
       <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>

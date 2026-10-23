@@ -20,6 +20,7 @@ import { IconDashboard, IconUsers, IconTool, IconSettings, IconChart, IconLogout
 import ThemeToggle from '../components/ThemeToggle'
 import MotorSaat from '../components/dashboard/MotorSaat'
 import PlakaSorgula from '../components/dashboard/PlakaSorgula'
+import { useYoneticiBildirimleri } from '../components/dashboard/useYoneticiBildirimleri'
 import '../styles/dashboard.css'
 
 const PAGE_TITLES = {
@@ -53,6 +54,9 @@ const Dashboard = () => {
   const [plakaSorgulaAcik, setPlakaSorgulaAcik] = useState(false)
   const { user, signOut, isAdmin } = useAuth()
   const navigate = useNavigate()
+
+  // Yönetici PWA anlık telefon bildirim dinleyicisi
+  useYoneticiBildirimleri(profile)
 
   useEffect(() => {
     if (user) {
