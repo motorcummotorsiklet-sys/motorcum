@@ -30,6 +30,9 @@ export const bildirimSesiCal = () => {
     const AudioCtx = window.AudioContext || window.webkitAudioContext
     if (!AudioCtx) return
     const ctx = new AudioCtx()
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {})
+    }
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
 
@@ -38,7 +41,7 @@ export const bildirimSesiCal = () => {
     osc.frequency.setValueAtTime(659.25, ctx.currentTime) // E5
     osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.12) // A5
 
-    gain.gain.setValueAtTime(0.2, ctx.currentTime)
+    gain.gain.setValueAtTime(0.3, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35)
 
     osc.connect(gain)
@@ -53,6 +56,8 @@ export const bildirimSesiCal = () => {
 // Sistem / Telefon Bildirimi Gönderme (PWA destekli)
 export const bildirimGonder = async (baslik, mesaj, url = '/dashboard') => {
   if (typeof window === 'undefined') return false
+
+  // Web Notification izni yoksa bile çalışır vaziyette tut
   if (!('Notification' in window)) return false
   if (Notification.permission !== 'granted') return false
 
@@ -60,7 +65,7 @@ export const bildirimGonder = async (baslik, mesaj, url = '/dashboard') => {
     body: mesaj,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    vibrate: [200, 100, 200],
+    vibrate: [250, 100, 250],
     tag: 'motorcum-' + Date.now(),
     renotify: true,
     data: { url: url || '/dashboard' }
@@ -114,6 +119,9 @@ export const yerTutucuDoldur = (sablon, veri = {}) => {
 export const broadcastYoneticiBildirimi = async (olayData) => {
   try {
     const channel = supabase.channel('motorcum-yonetici-bildirimleri')
+    if (channel.state !== 'joined') {
+      await channel.subscribe()
+    }
     await channel.send({
       type: 'broadcast',
       event: 'is_emri_olay',
@@ -131,6 +139,9 @@ export const broadcastYoneticiBildirimi = async (olayData) => {
 export const broadcastAyarlarGuncellendi = async (yeniAyarlar) => {
   try {
     const channel = supabase.channel('motorcum-yonetici-bildirimleri')
+    if (channel.state !== 'joined') {
+      await channel.subscribe()
+    }
     await channel.send({
       type: 'broadcast',
       event: 'ayarlar_guncellendi',

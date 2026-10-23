@@ -33,6 +33,47 @@ const VARSAYILAN_AYARLAR = {
   },
 }
 
+// Uygulama ekrandayken (telefon açıkken) üstten kayan canlı bildirim kartı
+const canliBannerGoster = (baslik, mesaj) => {
+  if (typeof document === 'undefined') return
+  const id = 'motorcum-toast-banner'
+  const existing = document.getElementById(id)
+  if (existing) existing.remove()
+
+  const banner = document.createElement('div')
+  banner.id = id
+  banner.style.cssText = `
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999999;
+    max-width: 92vw;
+    width: 380px;
+    background: #18181b;
+    color: #fff;
+    border: 1px solid rgba(229,72,77,.5);
+    box-shadow: 0 12px 36px rgba(0,0,0,.65);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  `
+  banner.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <div style="font-size:22px;line-height:1">🏍️</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:2px">${baslik}</div>
+        <div style="font-size:12px;color:#d4d4d8;line-height:1.4">${mesaj}</div>
+      </div>
+      <button style="background:none;border:none;color:#a1a1aa;font-size:14px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+  `
+  banner.onclick = () => banner.remove()
+  document.body.appendChild(banner)
+  setTimeout(() => { if (banner && banner.parentNode) banner.remove() }, 6500)
+}
+
 export const useYoneticiBildirimleri = (profile) => {
   const ayarlarRef = useRef(VARSAYILAN_AYARLAR)
   const sonBildirilenlerRef = useRef(new Set())
@@ -117,12 +158,15 @@ export const useYoneticiBildirimleri = (profile) => {
       const baslik = yerTutucuDoldur(ayar.baslik, veri)
       const mesaj = yerTutucuDoldur(ayar.icerik, veri)
 
-      // Sesli uyarı
+      // 1. Sesli uyarı çal
       if (ayar.ses) {
         bildirimSesiCal()
       }
 
-      // Telefon / PWA bildirimi
+      // 2. Canlı in-app bildirim kartını ekrana düşür
+      canliBannerGoster(baslik, mesaj)
+
+      // 3. Telefon / PWA sistem bildirimi gönder (Kilit ekranı ve bildirim çubuğu)
       await bildirimGonder(baslik, mesaj, '/dashboard')
     }
 
@@ -217,13 +261,13 @@ export const useYoneticiBildirimleri = (profile) => {
     channel.subscribe()
 
     // --- 4. PERİYODİK POLING (MOBİLDE WEBSOCKET KOPMALARINA KARŞI YEDEK KORUMA) ---
-    // Her 8 saniyede son iş emirlerini kontrol eder, kaçan bir statü değişikliği varsa telefona bildirir
+    // Her 6 saniyede son iş emirlerini kontrol eder
     const kontrolPeriyodu = setInterval(async () => {
       try {
         const { data: sonIsler } = await supabase
           .from('is_emirleri')
           .select('id, is_emri_no, durum, odeme_durumu, toplam_tutar, odenen_tutar, updated_at, musteriler(ad, soyad), araclar(plaka, marka, model)')
-          .order('updated_at', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(10)
 
         if (!sonIsler || sonIsler.length === 0) return
@@ -253,8 +297,15 @@ export const useYoneticiBildirimleri = (profile) => {
             markaModel,
           }
 
-          if (onceki) {
-            // Durum değişmiş mi?
+          // A) Yeni iş emri kontrolü (telefon kapalıyken veya uyurken oluşturulduysa)
+          if (!onceki && ilkYuklemeBittiRef.current) {
+            const anahtar = `${is.id}:olusturuldu`
+            if (!sonBildirilenlerRef.current.has(anahtar)) {
+              sonBildirilenlerRef.current.add(anahtar)
+              await bildirimiIsle('is_emri_olusturuldu', veri)
+            }
+          } else if (onceki) {
+            // B) Durum değişmiş mi?
             if (onceki.durum !== is.durum) {
               const anahtar = `${is.id}:durum:${is.durum}`
               if (!sonBildirilenlerRef.current.has(anahtar)) {
@@ -267,7 +318,7 @@ export const useYoneticiBildirimleri = (profile) => {
               }
             }
 
-            // Ödeme durumu değişmiş mi?
+            // C) Ödeme durumu değişmiş mi?
             if (onceki.odeme !== is.odeme_durumu && ['odendi', 'kismi'].includes(is.odeme_durumu)) {
               const anahtar = `${is.id}:odeme:${is.odeme_durumu}:${is.odenen_tutar || is.toplam_tutar}`
               if (!sonBildirilenlerRef.current.has(anahtar)) {
@@ -283,7 +334,7 @@ export const useYoneticiBildirimleri = (profile) => {
       } catch (err) {
         // Sessiz hata
       }
-    }, 8000)
+    }, 6000)
 
     return () => {
       clearInterval(kontrolPeriyodu)

@@ -52,18 +52,18 @@ const Dashboard = () => {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [cikisArmed, setCikisArmed] = useState(false)
   const [plakaSorgulaAcik, setPlakaSorgulaAcik] = useState(false)
-  const { user, signOut, isAdmin } = useAuth()
+  const { user, profile: authProfile, signOut, isAdmin } = useAuth()
   const navigate = useNavigate()
 
   // Yönetici PWA anlık telefon bildirim dinleyicisi
-  useYoneticiBildirimleri(profile)
+  useYoneticiBildirimleri(authProfile || profile)
 
   useEffect(() => {
-    if (user) {
+    if (user && !authProfile) {
       supabase.from('profiles').select('*').eq('id', user.id).single()
         .then(({ data }) => setProfile(data))
     }
-  }, [user])
+  }, [user, authProfile])
 
   // Sayfa yenilenince (F5 / mobil yenile) aynı ekranda kalınsın diye her
   // sayfa değişiminde sessionStorage'a da yazıyoruz — bu, tarayıcı sekmesi
