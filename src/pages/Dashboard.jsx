@@ -21,6 +21,8 @@ import ThemeToggle from '../components/ThemeToggle'
 import MotorSaat from '../components/dashboard/MotorSaat'
 import PlakaSorgula from '../components/dashboard/PlakaSorgula'
 import { useYoneticiBildirimleri } from '../components/dashboard/useYoneticiBildirimleri'
+import { isMobilCihaz } from '../utils/pwaBildirim'
+import { webPushAboneOl } from '../utils/webPushManager'
 import '../styles/dashboard.css'
 
 const PAGE_TITLES = {
@@ -52,8 +54,24 @@ const Dashboard = () => {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [cikisArmed, setCikisArmed] = useState(false)
   const [plakaSorgulaAcik, setPlakaSorgulaAcik] = useState(false)
+  const [bildirimIzinDurumu, setBildirimIzinDurumu] = useState(() => {
+    return typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  })
   const { user, profile: authProfile, signOut, isAdmin } = useAuth()
   const navigate = useNavigate()
+
+  const mobilBildirimIzinVer = async () => {
+    if (typeof Notification === 'undefined') return
+    try {
+      const p = await Notification.requestPermission()
+      setBildirimIzinDurumu(p)
+      if (p === 'granted') {
+        await webPushAboneOl(authProfile || profile)
+      }
+    } catch (e) {
+      console.warn('İzin hatası:', e)
+    }
+  }
 
   // Yönetici PWA anlık telefon bildirim dinleyicisi
   useYoneticiBildirimleri(authProfile || profile)
@@ -166,6 +184,46 @@ const Dashboard = () => {
         </div>
         {adminMi && (
           <PlakaSorgula acik={plakaSorgulaAcik} onKapat={() => setPlakaSorgulaAcik(false)} onIsEmriAc={(is) => { setAcikIsEmri(is); handleSetActivePage('is-emirleri') }} />
+        )}
+        {isMobilCihaz() && bildirimIzinDurumu !== 'granted' && (
+          <div style={{
+            margin: '12px 14px 0 14px',
+            background: 'linear-gradient(135deg, rgba(229,72,77,0.18), rgba(229,72,77,0.06))',
+            border: '1px solid rgba(229,72,77,0.35)',
+            borderRadius: 12,
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span style={{ fontSize: 20 }}>🔔</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main, #fff)' }}>Kilit Ekranı Bildirimlerini Aç</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted, #aaa)', lineHeight: 1.3 }}>
+                  İş emirlerini kilit ekranında görebilmek için izin verin.
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={mobilBildirimIzinVer}
+              style={{
+                background: '#e5484d',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '7px 12px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              İzin Ver
+            </button>
+          </div>
         )}
         <div className="page-content">{renderPage()}</div>
       </div>

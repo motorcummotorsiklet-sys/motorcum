@@ -1,4 +1,5 @@
 // Web Push Abonelik ve Gönderim Yönetimi
+import { supabase } from '../supabaseClient'
 import { isMobilCihaz } from './pwaBildirim'
 
 export const VAPID_PUBLIC_KEY = 'BD0IZFgURrjaMSRDH8ZNlR5PTzf0g1E9OFbzKufouZpW8JTxcCxjBQjyJM48e1cTMuW8ptW6_xumtR88xm5e8J0'
@@ -34,9 +35,17 @@ export const webPushAboneOl = async (profile) => {
   }
 
   try {
-    const permission = await Notification.requestPermission()
+    let permission = typeof Notification !== 'undefined' ? Notification.permission : 'default'
     if (permission !== 'granted') {
-      return { success: false, reason: 'permission_denied' }
+      try {
+        permission = await Notification.requestPermission()
+      } catch (e) {
+        console.warn('İzin isteme uyarısı:', e)
+      }
+    }
+
+    if (permission !== 'granted') {
+      return { success: false, reason: 'permission_' + permission }
     }
 
     const reg = await navigator.serviceWorker.ready
@@ -49,20 +58,60 @@ export const webPushAboneOl = async (profile) => {
       })
     }
 
-    // Backend'e aboneliği kaydet
-    const res = await fetch('/api/push-subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subscription: sub,
-        user_id: profile?.id || null,
-        rol: profile?.rol || 'admin',
-        userAgent: navigator.userAgent
-      })
-    })
+    // Anahtarları ayıkla
+    const subJson = sub.toJSON ? sub.toJSON() : {}
+    const endpoint = sub.endpoint
+    let p256dh = subJson.keys?.p256dh || ''
+    let auth = subJson.keys?.auth || ''
 
-    const data = await res.json()
-    return { success: true, sub, data }
+    if (!p256dh && sub.getKey) {
+      try {
+        const raw = sub.getKey('p256dh')
+        if (raw) p256dh = btoa(String.fromCharCode.apply(null, new Uint8Array(raw)))
+      } catch {}
+    }
+    if (!auth && sub.getKey) {
+      try {
+        const raw = sub.getKey('auth')
+        if (raw) auth = btoa(String.fromCharCode.apply(null, new Uint8Array(raw)))
+      } catch {}
+    }
+
+    const rol = (profile?.rol || 'admin').toLowerCase().trim()
+    const userAgent = navigator.userAgent || 'mobile'
+
+    // 1. İstemciden doğrudan Supabase veritabanına yaz (En hızlı ve garantili yol)
+    if (endpoint && p256dh && auth) {
+      try {
+        await supabase.from('push_abonelikleri').upsert({
+          endpoint,
+          p256dh,
+          auth,
+          user_id: profile?.id || null,
+          rol,
+          user_agent: userAgent,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'endpoint' })
+      } catch (sbErr) {
+        console.warn('Supabase istemci kayıt uyarısı:', sbErr)
+      }
+    }
+
+    // 2. Yedek olarak Vercel API'ye de bildir
+    try {
+      await fetch('/api/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: sub,
+          user_id: profile?.id || null,
+          rol,
+          userAgent
+        })
+      })
+    } catch {}
+
+    return { success: true, sub }
   } catch (err) {
     console.warn('Web push abone olma hatası:', err)
     return { success: false, error: err.message }

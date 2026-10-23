@@ -153,6 +153,7 @@ const Bildirimler = () => {
   const [aktifOlay, setAktifOlay] = useState('is_emri_olusturuldu')
   const [sablonlar, setSablonlar] = useState({}) // { 'sms:olay': {konu, icerik, aktif, id} }
   const [taslak, setTaslak] = useState({ konu: '', icerik: '', aktif: true, servis_formu_ekle: false })
+  const [bagliCihazSayisi, setBagliCihazSayisi] = useState(0)
   const [loading, setLoading] = useState(true)
   const [kaydediliyor, setKaydediliyor] = useState(false)
   const [msg, setMsg] = useState({ text: '', type: '' })
@@ -238,6 +239,14 @@ const Bildirimler = () => {
     const map = {}
     for (const row of (data || [])) map[`${row.tip}:${row.olay}`] = row
     setSablonlar(map)
+
+    try {
+      const { count } = await supabase
+        .from('push_abonelikleri')
+        .select('*', { count: 'exact', head: true })
+      setBagliCihazSayisi(count || 0)
+    } catch {}
+
     setLoading(false)
   }
 
@@ -652,17 +661,27 @@ const Bildirimler = () => {
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            background: 'rgba(59, 130, 246, 0.08)',
-            border: '1px solid rgba(59, 130, 246, 0.25)',
+            justifyContent: 'space-between',
+            gap: 12,
+            background: bagliCihazSayisi > 0 ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+            border: bagliCihazSayisi > 0 ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
             borderRadius: 8,
             padding: '10px 14px',
             fontSize: 12.5,
             color: 'var(--text-main, #fff)',
             marginBottom: 16
           }}>
-            <span>📱</span>
-            <span><strong>Mobil Bildirim:</strong> Yönetici bildirimleri seçili personellerin telefonlarına (kilit ekranı ve bildirim çubuğu) iletilir. PC masaüstünde sağ altta bildirim çıkmaz.</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>{bagliCihazSayisi > 0 ? '📱' : '⚠️'}</span>
+              <span>
+                <strong>Kayıtlı Yönetici Telefonu:</strong> {bagliCihazSayisi > 0 ? `${bagliCihazSayisi} adet mobil cihaz bağlı (Kilitli telefona bildirim gider)` : 'Henüz sisteme bağlı telefon yok! Telefonunuzdan uygulamayı açıp bildirim izni verin.'}
+              </span>
+            </div>
+            {isMobilCihaz() && izinDurumu !== 'granted' && (
+              <button className="btn btn-primary btn-sm" onClick={izinIste} style={{ flexShrink: 0 }}>
+                🔔 Bildirim İznini Aç
+              </button>
+            )}
           </div>
 
           <div className="bildirim-sablon-grid" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>

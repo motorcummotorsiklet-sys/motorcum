@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
 import { bildirimGonder, bildirimSesiCal, yerTutucuDoldur, normalizeRol, isMobilCihaz } from '../../utils/pwaBildirim'
+import { webPushAboneOl } from '../../utils/webPushManager'
 
 const VARSAYILAN_AYARLAR = {
   is_emri_olusturuldu: {
@@ -97,6 +98,11 @@ export const useYoneticiBildirimleri = (profile) => {
     if (!profile?.rol) return
 
     ayarlarYukle()
+
+    // MOBİL CİHAZDA İZİN VERİLMİŞSE OTOMATİK OLARAK PUSH'A ABONE YAP
+    if (isMobilCihaz() && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      webPushAboneOl(profile).catch((e) => console.warn('Otomatik mobil push aboneliği:', e))
+    }
 
     // Olayı işle ve cihaz bildirimini tetikle
     const bildirimiIsle = async (olayTipi, veri) => {
