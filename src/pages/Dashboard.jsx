@@ -61,15 +61,25 @@ const Dashboard = () => {
   const navigate = useNavigate()
 
   const mobilBildirimIzinVer = async () => {
-    if (typeof Notification === 'undefined') return
+    if (typeof Notification === 'undefined') {
+      alert('Bu tarayıcı bildirimleri desteklemiyor.')
+      return
+    }
     try {
       const p = await Notification.requestPermission()
       setBildirimIzinDurumu(p)
       if (p === 'granted') {
-        await webPushAboneOl(authProfile || profile)
+        const res = await webPushAboneOl(authProfile || profile)
+        if (res.success) {
+          alert('✅ Telefonunuz başarıyla bağlandı! Artık tuş kilitliyken bildirim gelecek.')
+        } else {
+          alert('⚠️ Bildirim kaydı uyarısı: ' + (res.warning || res.error || res.reason || 'Kayıt tamamlanamadı. Lütfen Supabase SQL kodunu çalıştırdığınızdan emin olun.'))
+        }
+      } else {
+        alert('Bildirim izni verilmedi (Durum: ' + p + ')')
       }
     } catch (e) {
-      console.warn('İzin hatası:', e)
+      alert('İzin hatası: ' + e.message)
     }
   }
 

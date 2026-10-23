@@ -341,8 +341,9 @@ const Bildirimler = () => {
         const subRes = await webPushAboneOl(profile)
         if (subRes.success) {
           showMsg('✅ Web Push kilit ekranı bildirimi başarıyla bağlandı! Tuş kilitliyken de bildirim gelecek.')
+          fetchSablonlar()
         } else {
-          showMsg('✅ Bildirim izni verildi! Telefonunuza anlık bildirimler gelecek.')
+          showMsg('⚠️ Bildirim kaydı uyarısı: ' + (subRes.warning || subRes.error || 'Veritabanı RLS kısıtı olabilir. Lütfen Supabase SQL kodunu çalıştırın.'), 'error')
         }
       } else {
         showMsg('Bildirim izni reddedildi.', 'error')

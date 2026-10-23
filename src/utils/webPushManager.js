@@ -80,10 +80,11 @@ export const webPushAboneOl = async (profile) => {
     const rol = (profile?.rol || 'admin').toLowerCase().trim()
     const userAgent = navigator.userAgent || 'mobile'
 
+    let sbError = null
     // 1. İstemciden doğrudan Supabase veritabanına yaz (En hızlı ve garantili yol)
     if (endpoint && p256dh && auth) {
       try {
-        await supabase.from('push_abonelikleri').upsert({
+        const { error } = await supabase.from('push_abonelikleri').upsert({
           endpoint,
           p256dh,
           auth,
@@ -92,14 +93,17 @@ export const webPushAboneOl = async (profile) => {
           user_agent: userAgent,
           updated_at: new Date().toISOString()
         }, { onConflict: 'endpoint' })
+        if (error) sbError = error.message
       } catch (sbErr) {
+        sbError = sbErr.message
         console.warn('Supabase istemci kayıt uyarısı:', sbErr)
       }
     }
 
     // 2. Yedek olarak Vercel API'ye de bildir
+    let apiWarning = null
     try {
-      await fetch('/api/push-subscribe', {
+      const res = await fetch('/api/push-subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,7 +113,15 @@ export const webPushAboneOl = async (profile) => {
           userAgent
         })
       })
+      const apiData = await res.json()
+      if (apiData && !apiData.success && apiData.warning) {
+        apiWarning = apiData.warning
+      }
     } catch {}
+
+    if (apiWarning || sbError) {
+      return { success: false, warning: apiWarning || sbError }
+    }
 
     return { success: true, sub }
   } catch (err) {

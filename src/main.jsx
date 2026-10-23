@@ -11,7 +11,5 @@ createRoot(document.getElementById('root')).render(
 
 // PWA — telefon/masaüstü ana ekranına uygulama gibi kurulabilmesi için
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {})
-  })
+  navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('SW kaydı uyarısı:', err))
 }
