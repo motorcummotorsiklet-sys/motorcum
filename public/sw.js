@@ -1,4 +1,4 @@
-const CACHE_NAME = 'motorcum-v1.0.129'
+const CACHE_NAME = 'motorcum-v1.0.132'
 const APP_SHELL = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
@@ -66,13 +66,13 @@ self.addEventListener('push', (event) => {
     data = { title: 'Motorcum Servis', body: event.data ? event.data.text() : 'Yeni bildirim' }
   }
 
-  const title = data.title || 'Motorcum Servis'
+  const title = data.title || 'Servis Bildirimi'
   const options = {
     body: data.body || 'İş emrinde güncelleme var.',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     vibrate: [300, 150, 300],
-    tag: data.tag || 'motorcum-' + Date.now(),
+    tag: data.tag || 'bildirim-' + Date.now(),
     renotify: true,
     data: {
       url: data.url || '/dashboard'

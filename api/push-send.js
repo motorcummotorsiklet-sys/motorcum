@@ -80,7 +80,7 @@ export default async function handler(req, res) {
       title: baslik,
       body: mesaj,
       url: url || '/dashboard',
-      tag: 'motorcum-' + Date.now(),
+      tag: 'bildirim-' + Date.now(),
       timestamp: Date.now()
     })
 
