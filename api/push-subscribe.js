@@ -31,12 +31,26 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, message: 'PC/Masaüstü aboneliği atlandı.' })
     }
 
+    let finalRol = (rol || 'admin').toLowerCase().trim()
+    if (user_id) {
+      try {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('rol')
+          .eq('id', user_id)
+          .maybeSingle()
+        if (prof?.rol) {
+          finalRol = prof.rol.toLowerCase().trim()
+        }
+      } catch (_) {}
+    }
+
     const payload = {
       endpoint,
       p256dh,
       auth,
       user_id: user_id || null,
-      rol: (rol || 'admin').toLowerCase().trim(),
+      rol: finalRol,
       user_agent: uaString,
       updated_at: new Date().toISOString()
     }

@@ -210,7 +210,7 @@ export const broadcastYoneticiBildirimi = async (olayData) => {
     return
   }
 
-  const hedefRoller = (ayar?.roller && ayar.roller.length > 0) ? ayar.roller : (olayData.roller || ['admin'])
+  const hedefRoller = (ayar?.roller && ayar.roller.length > 0) ? ayar.roller : (olayData.roller || ['admin', 'yönetici'])
 
   // Şablondaki başlık ve içeriği yer tutucularla doldur (kullanıcının özelleştirdiği şablonu uygula)
   let sablonBaslik = ayar?.baslik || olayData.baslik

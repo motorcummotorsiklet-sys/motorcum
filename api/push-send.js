@@ -24,7 +24,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Başlık ve mesaj zorunludur.' })
     }
 
-    // Olay tipi belirtilmişse Supabase'den aktiflik kontrolü yap
+    let aktifRoller = null
+
+    // Olay tipi belirtilmişse Supabase'den aktiflik ve hedef rolleri al
     if (olayTipi) {
       const { data: sablon } = await supabase
         .from('bildirim_sablonlari')
@@ -33,16 +35,32 @@ export default async function handler(req, res) {
         .eq('olay', olayTipi)
         .maybeSingle()
 
-      if (sablon && sablon.aktif === false) {
-        return res.status(200).json({
-          success: true,
-          sentCount: 0,
-          message: `Olay tipi (${olayTipi}) ayarlardan pasif yapıldığı için bildirim gönderilmedi.`
-        })
+      if (sablon) {
+        if (sablon.aktif === false) {
+          return res.status(200).json({
+            success: true,
+            sentCount: 0,
+            message: `Olay tipi (${olayTipi}) ayarlardan pasif yapıldığı için bildirim gönderilmedi.`
+          })
+        }
+
+        try {
+          if (sablon.konu && typeof sablon.konu === 'string' && sablon.konu.startsWith('{')) {
+            const parsed = JSON.parse(sablon.konu)
+            if (Array.isArray(parsed.roller) && parsed.roller.length > 0) {
+              aktifRoller = parsed.roller
+            }
+          }
+        } catch (_) {}
       }
     }
 
-    // 1. Veritabanından kayıtlı tüm mobil / masaüstü abonelikleri çek
+    // Hedef roller: Öncelikle şablonda seçili roller, yoksa istekten gelen roller, yoksa varsayılan admin/yönetici
+    const sonHedefRoller = (aktifRoller && aktifRoller.length > 0)
+      ? aktifRoller
+      : (Array.isArray(hedefRoller) && hedefRoller.length > 0 ? hedefRoller : ['admin', 'yönetici'])
+
+    // 1. Veritabanından kayıtlı tüm mobil push aboneliklerini çek
     const { data: abonelikler, error: dbErr } = await supabase
       .from('push_abonelikleri')
       .select('*')
@@ -57,22 +75,26 @@ export default async function handler(req, res) {
 
     // 2. Rol filtrelemesi & YALNIZCA MOBİL CİHAZ FİLTRESİ (PC / Masaüstü cihazlara bildirim gitmez)
     const norm = (s) => (s || '').toLowerCase().replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').trim()
-    const hedefRollerNorm = Array.isArray(hedefRoller) ? hedefRoller.map(norm) : []
+    const hedefRollerNorm = sonHedefRoller.map(norm)
 
     const gonderilecekAboneler = abonelikler.filter((abone) => {
       // Masaüstü Windows PC abonelerini engelle (yalnızca mobil telefonlar)
       const ua = (abone.user_agent || '').toLowerCase()
       if (ua.includes('windows nt')) return false
 
-      if (hedefRollerNorm.length === 0) return true
-      const r = norm(abone.rol) || 'admin'
-      return hedefRollerNorm.includes(r) ||
-        (r === 'admin') ||
-        (r === 'yonetici' && hedefRollerNorm.some(h => h.includes('yonetici')))
+      const r = norm(abone.rol)
+      if (!r) return false
+
+      // Kesin rol eşleşmesi: Yalnızca ayarlarda seçili rollerdeki telefonlara bildirim gider
+      return hedefRollerNorm.some(hedef => {
+        if (hedef === r) return true
+        if (hedef.includes('yonetici') && r.includes('yonetici')) return true
+        return false
+      })
     })
 
     if (gonderilecekAboneler.length === 0) {
-      return res.status(200).json({ success: true, sentCount: 0, message: 'Hedef role uygun abone yok.' })
+      return res.status(200).json({ success: true, sentCount: 0, message: 'Hedef rollere uygun abone yok.' })
     }
 
     // 3. Apple ve Google Push sunucularına bildirim paketini gönder

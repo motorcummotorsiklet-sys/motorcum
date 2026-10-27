@@ -8,28 +8,28 @@ const VARSAYILAN_AYARLAR = {
     aktif: true,
     baslik: '🔧 Yeni İş Emri: {arac_plaka}',
     icerik: '#{is_emri_no} nolu araç servise alındı. Müşteri: {musteri_adi}',
-    roller: ['admin', 'yönetici', 'usta', 'teknisyen'],
+    roller: ['admin', 'yönetici'],
     ses: true,
   },
   is_emri_durum_degisti: {
     aktif: true,
     baslik: '🔄 Statü Değişti: {arac_plaka}',
     icerik: '#{is_emri_no} nolu aracın durumu: {durum}. Müşteri: {musteri_adi}',
-    roller: ['admin', 'yönetici', 'usta', 'teknisyen'],
+    roller: ['admin', 'yönetici'],
     ses: true,
   },
   is_emri_tamamlandi: {
     aktif: true,
     baslik: '✅ Servis Tamamlandı: {arac_plaka}',
     icerik: '#{is_emri_no} nolu araç teslime hazır. Toplam: {tutar}',
-    roller: ['admin', 'yönetici', 'usta', 'teknisyen'],
+    roller: ['admin', 'yönetici'],
     ses: true,
   },
   odeme_alindi: {
     aktif: true,
     baslik: '💰 Ödeme Alındı: {tutar}',
     icerik: '{arac_plaka} plakalı iş emri #{is_emri_no} için ödeme kaydedildi.',
-    roller: ['admin', 'yönetici', 'usta', 'teknisyen'],
+    roller: ['admin', 'yönetici'],
     ses: true,
   },
 }
@@ -62,7 +62,7 @@ export const useYoneticiBildirimleri = (profile) => {
         const yeniAyarlar = { ...ayarlarRef.current }
         for (const row of data) {
           let baslik = yeniAyarlar[row.olay]?.baslik || ''
-          let roller = yeniAyarlar[row.olay]?.roller || ['admin', 'yönetici', 'usta', 'teknisyen']
+          let roller = yeniAyarlar[row.olay]?.roller || ['admin', 'yönetici']
           let ses = true
 
           try {
@@ -113,13 +113,20 @@ export const useYoneticiBildirimleri = (profile) => {
       if (!ayar || !ayar.aktif) return
 
       // Rol kontrolü: Kullanıcının rolü hedef rollerde var mı?
-      const kullaniciRoluNorm = normalizeRol(profile.rol)
-      const hedefRollerNorm = (ayar.roller || []).map(normalizeRol)
+      // Öncelik: payload (veri) içindeki roller, yoksa şablon ayarındaki roller, yoksa varsayılan admin/yönetici
+      const rollerListesi = (Array.isArray(veri?.roller) && veri.roller.length > 0)
+        ? veri.roller
+        : (Array.isArray(ayar.roller) && ayar.roller.length > 0 ? ayar.roller : ['admin', 'yönetici'])
 
-      // Eğer kullanıcı admin veya yöneticiyse veya rol listede varsa gönder
-      const eslesme = hedefRollerNorm.includes(kullaniciRoluNorm) ||
-        (kullaniciRoluNorm === 'admin') ||
-        (kullaniciRoluNorm === 'yonetici' && hedefRollerNorm.some(r => r.includes('yonetici')))
+      const kullaniciRoluNorm = normalizeRol(profile.rol)
+      const hedefRollerNorm = rollerListesi.map(normalizeRol)
+
+      // Kesin rol eşleşmesi: Yalnızca ayarlarda seçili rollerdeki cihazlara bildirim gider
+      const eslesme = hedefRollerNorm.some(hedef => {
+        if (hedef === kullaniciRoluNorm) return true
+        if (hedef.includes('yonetici') && kullaniciRoluNorm.includes('yonetici')) return true
+        return false
+      })
 
       if (!eslesme) return
 
